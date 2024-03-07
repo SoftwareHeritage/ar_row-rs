@@ -510,40 +510,43 @@ macro_rules! build_list_item {
 
 /// Implementation of [`read_options_from_array`] generalized over offset type
 macro_rules! read_list_of_options_from_array {
-    ($src: expr, $dst: expr) => {{
-        let (src, mut elements) = init_list_read!($src, $dst);
-        let mut offsets = src.offsets().iter().copied();
+    ($src:expr, $offset_ty:ty, $dst: expr) => {{
+        if let Some(src) = $src.as_list_opt::<$offset_ty>() {
+            let (src, mut elements) = init_list_read!(src, $dst);
+            let mut offsets = src.offsets().iter().copied();
 
-        let mut previous_offset = offsets.next().unwrap_or(0);
+            let mut previous_offset = offsets.next().unwrap_or(0);
 
-        let offsets = NullableValuesIterator::new(offsets, src.nulls().map(|nulls| nulls.iter()));
-        let num_lists = offsets.len();
+            let offsets =
+                NullableValuesIterator::new(offsets, src.nulls().map(|nulls| nulls.iter()));
+            let num_lists = offsets.len();
 
-        if num_lists > $dst.len() {
-            return Err(DeserializationError::MismatchedLength {
-                src: num_lists,
-                dst: $dst.len(),
-            });
-        }
+            if num_lists > $dst.len() {
+                return Err(DeserializationError::MismatchedLength {
+                    src: num_lists,
+                    dst: $dst.len(),
+                });
+            }
 
-        let mut dst = $dst.iter_mut();
+            let mut dst = $dst.iter_mut();
 
-        for offset in offsets {
-            // Safe because we checked dst.len() == num_elements, and num_elements
-            // is also the size of offsets
-            let dst_item: &mut Option<Vec<I>> = unsafe { dst.next().unwrap_unchecked() };
-            match offset {
-                None => *dst_item = None,
-                Some(offset) => {
-                    *dst_item = Some(build_list_item!(offset, previous_offset, elements));
+            for offset in offsets {
+                // Safe because we checked dst.len() == num_elements, and num_elements
+                // is also the size of offsets
+                let dst_item: &mut Option<Vec<I>> = unsafe { dst.next().unwrap_unchecked() };
+                match offset {
+                    None => *dst_item = None,
+                    Some(offset) => {
+                        *dst_item = Some(build_list_item!(offset, previous_offset, elements));
+                    }
                 }
             }
-        }
-        if elements.next().is_some() {
-            panic!("List too long");
-        }
+            if elements.next().is_some() {
+                panic!("List too long");
+            }
 
-        Ok(num_lists)
+            return Ok(num_lists);
+        }
     }};
 }
 
@@ -563,57 +566,53 @@ where
     where
         &'b mut T: DeserializationTarget<'a, Item = Option<Self>> + 'b,
     {
-        match src.as_list_opt::<i32>() {
-            Some(typed_src) => read_list_of_options_from_array!(typed_src, dst),
-            None => {
-                let typed_src = src.as_list_opt::<i64>().ok_or_else(|| {
-                    DeserializationError::MismatchedColumnDataType(format!(
-                        "Could not cast {:?} array with as_list_opt",
-                        src.data_type()
-                    ))
-                })?;
-                read_list_of_options_from_array!(typed_src, dst)
-            }
-        }
+        read_list_of_options_from_array!(src, i32, dst);
+        read_list_of_options_from_array!(src, i64, dst);
+        Err(DeserializationError::MismatchedColumnDataType(format!(
+            "Could not cast {:?} array with as_list_opt",
+            src.data_type()
+        )))
     }
 }
 
 /// Implementation of [`read_from_array`] generalized over offset type
 macro_rules! read_list_from_array {
-    ($src: expr, $dst: expr) => {{
-        let (src, mut elements) = init_list_read!($src, $dst);
-        match src.nulls() {
-            Some(_) => Err(DeserializationError::UnexpectedNull(format!(
-                "{} column contains nulls",
-                stringify!($ty)
-            ))),
-            None => {
-                let mut offsets = src.offsets().iter().copied();
+    ($src:expr, $offset_ty:ty, $dst: expr) => {{
+        if let Some(src) = $src.as_list_opt::<$offset_ty>() {
+            let (src, mut elements) = init_list_read!(src, $dst);
+            return match src.nulls() {
+                Some(_) => Err(DeserializationError::UnexpectedNull(format!(
+                    "{} column contains nulls",
+                    stringify!($ty)
+                ))),
+                None => {
+                    let mut offsets = src.offsets().iter().copied();
 
-                let mut previous_offset = offsets.next().unwrap_or(0);
-                let num_lists = offsets.len();
+                    let mut previous_offset = offsets.next().unwrap_or(0);
+                    let num_lists = offsets.len();
 
-                if num_lists > $dst.len() {
-                    return Err(DeserializationError::MismatchedLength {
-                        src: num_lists,
-                        dst: $dst.len(),
-                    });
+                    if num_lists > $dst.len() {
+                        return Err(DeserializationError::MismatchedLength {
+                            src: num_lists,
+                            dst: $dst.len(),
+                        });
+                    }
+
+                    let mut dst = $dst.iter_mut();
+
+                    for offset in offsets {
+                        // Safe because we checked dst.len() == num_elements, and num_elements
+                        // is also the size of offsets
+                        let dst_item: &mut Vec<I> = unsafe { dst.next().unwrap_unchecked() };
+
+                        *dst_item = build_list_item!(offset, previous_offset, elements);
+                    }
+                    if elements.next().is_some() {
+                        panic!("List too long");
+                    }
+
+                    Ok(num_lists)
                 }
-
-                let mut dst = $dst.iter_mut();
-
-                for offset in offsets {
-                    // Safe because we checked dst.len() == num_elements, and num_elements
-                    // is also the size of offsets
-                    let dst_item: &mut Vec<I> = unsafe { dst.next().unwrap_unchecked() };
-
-                    *dst_item = build_list_item!(offset, previous_offset, elements);
-                }
-                if elements.next().is_some() {
-                    panic!("List too long");
-                }
-
-                Ok(num_lists)
             }
         }
     }};
@@ -631,18 +630,12 @@ where
     where
         &'b mut T: DeserializationTarget<'a, Item = Self> + 'b,
     {
-        match src.as_list_opt::<i32>() {
-            Some(typed_src) => read_list_from_array!(typed_src, dst),
-            None => {
-                let typed_src = src.as_list_opt::<i64>().ok_or_else(|| {
-                    DeserializationError::MismatchedColumnDataType(format!(
-                        "Could not cast {:?} array with as_list_opt",
-                        src.data_type()
-                    ))
-                })?;
-                read_list_from_array!(typed_src, dst)
-            }
-        }
+        read_list_from_array!(src, i32, dst);
+        read_list_from_array!(src, i64, dst);
+        Err(DeserializationError::MismatchedColumnDataType(format!(
+            "Could not cast {:?} array with as_list_opt",
+            src.data_type()
+        )))
     }
 }
 
