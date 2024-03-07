@@ -15,7 +15,7 @@
 
 use arrow::record_batch::RecordBatch;
 
-use deserialize::{DeserializationError, ArRowDeserialize};
+use deserialize::{ArRowDeserialize, DeserializationError};
 
 /// Iterator on rows of yielded by an iterator of [`RecordBatch`].
 ///

@@ -13,7 +13,7 @@ use datafusion_orc::projection::ProjectionMask;
 use datafusion_orc::{ArrowReader, ArrowReaderBuilder};
 
 use ar_row::arrow::array::RecordBatchReader;
-use ar_row::deserialize::{CheckableDataType, DeserializationError, ArRowDeserialize};
+use ar_row::deserialize::{ArRowDeserialize, CheckableDataType, DeserializationError};
 use ar_row_derive::ArRowDeserialize;
 
 fn get_reader_builder() -> ArrowReaderBuilder<File> {
