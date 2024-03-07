@@ -118,9 +118,7 @@ pub mod deserialize;
 pub mod errors;
 #[cfg(feature = "rayon")]
 pub mod parallel_row_iterator;
-pub mod reader;
 pub mod row_iterator;
-pub mod structured_reader;
 
 #[cfg(feature = "json")]
 extern crate chrono;
