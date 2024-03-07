@@ -40,3 +40,7 @@ pub struct Timestamp {
     pub seconds: i64,
     pub nanoseconds: i64,
 }
+
+/// Days since epoch
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct Date(pub i64);

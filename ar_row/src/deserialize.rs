@@ -19,6 +19,7 @@ use std::num::TryFromIntError;
 use std::slice::IterMut;
 
 use crate::array_iterators::{NotNullArrayIter, NullableValuesIterator};
+use crate::{Date, Timestamp};
 
 /// Error returned when failing to read a particular batch of data
 #[derive(Debug, Error, PartialEq)]
@@ -314,6 +315,13 @@ impl_scalar!(
     PrimitiveArray<UInt64Type>
 );
 impl_scalar!(
+    Date,
+    [DataType::Date32],
+    as_primitive_opt,
+    PrimitiveArray<Date32Type>,
+    |d: i32| Ok(Date(d.into()))
+);
+impl_scalar!(
     f32,
     [DataType::Float32],
     as_primitive_opt,
@@ -340,7 +348,108 @@ impl_scalar!(
     |s: &[u8]| Ok(s.into())
 );
 
-/* TODO timestamps, decimals
+impl ArRowStruct for Timestamp {
+    fn columns_with_prefix(prefix: &str) -> Vec<String> {
+        vec![prefix.to_string()]
+    }
+}
+
+impl CheckableDataType for Timestamp {
+    fn check_datatype(datatype: &DataType) -> Result<(), String> {
+        use arrow::datatypes::TimeUnit::*;
+        check_datatype_equals(datatype, &[
+            DataType::Timestamp(Second, None),
+            DataType::Timestamp(Millisecond, None),
+            DataType::Timestamp(Microsecond, None),
+            DataType::Timestamp(Nanosecond, None),
+        ], "Timestamp")
+    }
+}
+
+macro_rules! impl_timestamp {
+    ($src:expr, $ty:ty, $ratio:expr, $dst:expr) => {{
+        if let Some(src) = $src.as_primitive_opt::<$ty>() {
+            return match NotNullArrayIter::new(src) {
+                None => Err(DeserializationError::UnexpectedNull(format!(
+                    "Timestamp column contains nulls",
+                ))),
+                Some(it) => {
+                    for (s, d) in it.zip($dst.iter_mut()) {
+                        *d = Timestamp {
+                            seconds: s / $ratio,
+                            nanoseconds: (s % $ratio) * (1_000_000_000 / $ratio),
+                        }
+                    }
+
+                    Ok(src.len())
+                }
+            };
+        }
+    }};
+}
+
+impl ArRowDeserialize for Timestamp {
+    fn read_from_array<'a, 'b, T>(
+        src: impl Array + AsArray,
+        mut dst: &'b mut T,
+    ) -> Result<usize, DeserializationError>
+    where
+        &'b mut T: DeserializationTarget<'a, Item = Self> + 'b,
+    {
+        impl_timestamp!(src, TimestampSecondType, 1, dst);
+        impl_timestamp!(src, TimestampMillisecondType, 1_000, dst);
+        impl_timestamp!(src, TimestampMicrosecondType, 1_000_000, dst);
+        impl_timestamp!(src, TimestampNanosecondType, 1_000_000_000, dst);
+
+        Err(DeserializationError::MismatchedColumnDataType(format!(
+            "Could not cast {:?} array with {}",
+            src.data_type(),
+            stringify!($method)
+        )))
+    }
+}
+
+macro_rules! impl_timestamp_option {
+    ($src:expr, $ty:ty, $ratio:expr, $dst:expr) => {{
+        if let Some(src) = $src.as_primitive_opt::<$ty>() {
+            for (s, d) in src.iter().zip($dst.iter_mut()) {
+                match s {
+                    None => *d = None,
+                    Some(s) => {
+                        *d = Some(Timestamp {
+                            seconds: s / $ratio,
+                            nanoseconds: (s % $ratio) * (1_000_000_000 / $ratio),
+                        })
+                    }
+                }
+            }
+            return Ok(src.len());
+        }
+    }};
+}
+
+impl ArRowDeserialize for Option<Timestamp> {
+    fn read_from_array<'a, 'b, T>(
+        src: impl Array + AsArray,
+        mut dst: &'b mut T,
+    ) -> Result<usize, DeserializationError>
+    where
+        &'b mut T: DeserializationTarget<'a, Item = Self> + 'b,
+    {
+        impl_timestamp_option!(src, TimestampSecondType, 1, dst);
+        impl_timestamp_option!(src, TimestampMillisecondType, 1_000, dst);
+        impl_timestamp_option!(src, TimestampMicrosecondType, 1_000_000, dst);
+        impl_timestamp_option!(src, TimestampNanosecondType, 1_000_000_000, dst);
+
+        Err(DeserializationError::MismatchedColumnDataType(format!(
+            "Could not cast {:?} array with {}",
+            src.data_type(),
+            stringify!($method)
+        )))
+    }
+}
+
+/* TODO decimals
 impl_scalar!(
     crate::Timestamp,
     [Kind::Timestamp],
@@ -613,7 +722,7 @@ macro_rules! read_list_from_array {
 
                     Ok(num_lists)
                 }
-            }
+            };
         }
     }};
 }
@@ -806,7 +915,10 @@ mod tests {
     #[test]
     fn test_check_datatype() {
         assert_eq!(i64::check_datatype(&DataType::Int64), Ok(()));
-        // TODO timestamps: assert_eq!(crate::Timestamp::check_datatype(&DataType::Timestamp(TimeUnit::Nanosecond, None)), Ok(()));
+        assert_eq!(
+            crate::Timestamp::check_datatype(&DataType::Timestamp(TimeUnit::Nanosecond, None)),
+            Ok(())
+        );
         assert_eq!(String::check_datatype(&DataType::Utf8), Ok(()));
         assert_eq!(String::check_datatype(&DataType::LargeUtf8), Ok(()));
         assert_eq!(Box::<[u8]>::check_datatype(&DataType::Binary), Ok(()));

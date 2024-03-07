@@ -3,34 +3,34 @@
 // License: GNU General Public License version 3, or any later version
 // See top-level LICENSE file for more information
 
-/* TODO
-
 extern crate ar_row;
 extern crate ar_row_derive;
-extern crate rust_decimal;
-extern crate rust_decimal_macros;
+extern crate datafusion_orc;
 
 use std::fs::File;
 
-use ar_row::deserialize::{CheckableDataType, ArRowDeserialize};
-use ar_row::reader;
-use ar_row::Timestamp;
+use ar_row::arrow::array::RecordBatchReader;
+use datafusion_orc::ArrowReaderBuilder;
 
-fn reader_builder() -> ArrowReaderBuilder {
-    let orc_path = "../test_data//TestOrcFile.testTimestamp.orc";
+use ar_row::deserialize::{CheckableDataType, ArRowDeserialize};
+use ar_row::{Date, Timestamp};
+use ar_row_derive::ArRowDeserialize;
+
+fn reader_builder(orc_path: &str) -> ArrowReaderBuilder<File> {
     let file = File::open(orc_path).expect("could not open .orc");
     ArrowReaderBuilder::try_new(file).expect("Could not make builder")
 }
 
+#[should_panic] // datafusion-orc does not support non-struct root type yet
 #[test]
 fn test_timestamp() {
-    let mut reader = reader_builder().build();
-    Timestamp::check_datatype(reader.schema()).unwrap();
+    let reader = reader_builder("../test_data/TestOrcFile.testTimestamp.orc").build();
+    Timestamp::check_schema(&reader.schema()).unwrap();
 
     let mut rows: Vec<Timestamp> = Vec::new();
 
     for batch in reader {
-        let new_rows = Timestamp::from_array(&batch.borrow()).unwrap();
+        let new_rows = Timestamp::from_record_batch(batch.unwrap()).unwrap();
         rows.extend(new_rows);
     }
 
@@ -88,4 +88,49 @@ fn test_timestamp() {
         ]
     );
 }
-*/
+
+#[derive(ArRowDeserialize, Default, Debug, PartialEq, Eq, Clone)]
+struct TimeAndDate {
+    time: Timestamp,
+    date: Date,
+}
+
+#[test]
+fn test_timestamp_1900() {
+    let reader = reader_builder("../test_data/TestOrcFile.testDate1900.orc").build();
+    TimeAndDate::check_schema(&reader.schema()).unwrap();
+
+    let mut rows: Vec<TimeAndDate> = Vec::new();
+
+    for batch in reader {
+        let new_rows = TimeAndDate::from_record_batch(batch.unwrap()).unwrap();
+        rows.extend(new_rows);
+    }
+
+    assert_eq!(
+        rows[0..3].to_vec(),
+        vec![
+            TimeAndDate {
+                time: Timestamp {
+                    seconds: -2198229902,
+                    nanoseconds: -900000000
+                },
+                date: Date(-25209),
+            },
+            TimeAndDate {
+                time: Timestamp {
+                    seconds: -2198229902,
+                    nanoseconds: -899900000
+                },
+                date: Date(-25209),
+            },
+            TimeAndDate {
+                time: Timestamp {
+                    seconds: -2198229902,
+                    nanoseconds: -899800000
+                },
+                date: Date(-25209),
+            },
+        ]
+    )
+}
