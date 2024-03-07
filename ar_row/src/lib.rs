@@ -24,13 +24,13 @@
 //!
 //! [`reader`] contains the entry points to parse a file, and reads into a
 //! [`OwnedColumnVectorBatch`](vector::OwnedColumnVectorBatch) structure, which can be
-//! `.borrow()`ed to get a [`BorrowedColumnVectorBatch`](vector::BorrowedColumnVectorBatch),
+//! `.borrow()`ed to get a [`dyn Array`](vector::BorrowedColumnVectorBatch),
 //! which implements most of the operations.
 //!
 //! This structure is untyped, and needs to be cast into the correct type, by calling
-//! [`try_into_longs()`](vector::BorrowedColumnVectorBatch::try_into_longs),
-//! [`try_into_strings()`](vector::BorrowedColumnVectorBatch::try_into_strings),
-//! [`try_into_structs()`](vector::BorrowedColumnVectorBatch::try_into_structs), etc.
+//! [`try_into_longs()`](dyn Array::try_into_longs),
+//! [`try_into_strings()`](dyn Array::try_into_strings),
+//! [`try_into_structs()`](dyn Array::try_into_structs), etc.
 //!
 //! While this works when parsing files whose structure is known, this is not very
 //! practical. The [`StructuredRowReader`](structured_reader::StructuredRowReader) offers
@@ -61,72 +61,16 @@
 //!
 //! # Examples
 //!
-//! See the [`ar_row_derive` documentation](https://docs.rs/ar_row_derive/) for more high-level
-//! examples and documentation.
-//!
-//! ```
-//! use ar_row::reader;
-//! use ar_row::vector::ColumnVectorBatch;
-//!
-//! let input_stream = reader::InputStream::from_local_file("orc/examples/TestOrcFile.test1.orc")
-//!     .expect("Could not open");
-//!
-//! let reader = reader::Reader::new(input_stream).expect("Could not read");
-//!
-//! println!("{:#?}", reader.kind()); // Prints the type of columns in the file
-//!
-//! let mut row_reader = reader.row_reader(&reader::RowReaderOptions::default()).unwrap();
-//! let mut batch = row_reader.row_batch(1024);
-//!
-//! let mut total_elements = 0;
-//! let mut all_strings: Vec<String> = Vec::new();
-//! while row_reader.read_into(&mut batch) {
-//!     total_elements += (&batch).num_elements();
-//!
-//!     let struct_vector = batch.borrow().try_into_structs().unwrap();
-//!     let vectors = struct_vector.fields();
-//!
-//!     for vector in vectors {
-//!         match vector.try_into_strings() {
-//!             Ok(string_vector) => {
-//!                 for s in string_vector.iter() {
-//!                     all_strings.push(
-//!                         std::str::from_utf8(s.unwrap_or(b"<null>"))
-//!                         .unwrap().to_owned())
-//!                 }
-//!             }
-//!             Err(e) => {}
-//!         }
-//!     }
-//! }
-//!
-//! assert_eq!(total_elements, 2);
-//! assert_eq!(
-//!     all_strings,
-//!     vec!["\0\u{1}\u{2}\u{3}\u{4}", "", "hi", "bye"]
-//!         .iter()
-//!         .map(|s| s.to_owned())
-//!         .collect::<Vec<_>>()
-//! );
-//! ```
+//! See the [`ar_row_derive` documentation](https://docs.rs/ar_row_derive/)
 
-#[cfg(feature = "rayon")]
-extern crate rayon;
+pub extern crate arrow;
 extern crate thiserror;
 
+mod array_iterators;
 pub mod deserialize;
-pub mod errors;
-#[cfg(feature = "rayon")]
-pub mod parallel_row_iterator;
 pub mod row_iterator;
 
-#[cfg(feature = "json")]
-extern crate chrono;
-#[cfg(feature = "json")]
-extern crate json;
 extern crate rust_decimal;
-#[cfg(feature = "json")]
-pub mod to_json;
 
 /// ORC timestamp (timezone-less)
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]

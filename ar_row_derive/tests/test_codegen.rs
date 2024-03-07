@@ -1,4 +1,4 @@
-// Copyright (C) 2023 The Software Heritage developers
+// Copyright (C) 2023-2024 The Software Heritage developers
 // See the AUTHORS file at the top-level directory of this distribution
 // License: GNU General Public License version 3, or any later version
 // See top-level LICENSE file for more information
@@ -6,8 +6,8 @@
 extern crate ar_row;
 extern crate ar_row_derive;
 
+use ar_row::arrow::datatypes::{DataType, Field};
 use ar_row::deserialize::{CheckableKind, OrcStruct};
-use ar_row::kind::Kind;
 use ar_row_derive::OrcDeserialize;
 
 #[test]
@@ -18,10 +18,13 @@ fn test_basic() {
         def: i64,
     }
 
-    Test::check_kind(&Kind::Struct(vec![
-        ("abc".to_string(), Kind::String),
-        ("def".to_string(), Kind::Long),
-    ]))
+    Test::check_datatype(&DataType::Struct(
+        vec![
+            Field::new("abc", DataType::Utf8, false),
+            Field::new("def", DataType::Int64, false),
+        ]
+        .into(),
+    ))
     .unwrap();
 
     assert_eq!(Test::columns(), vec!["abc", "def"]);
@@ -34,7 +37,10 @@ fn test_raw_literal() {
         r#type: String,
     }
 
-    Test::check_kind(&Kind::Struct(vec![("type".to_string(), Kind::String)])).unwrap();
+    Test::check_datatype(&DataType::Struct(
+        vec![Field::new("type", DataType::Utf8, false)].into(),
+    ))
+    .unwrap();
 
     assert_eq!(Test::columns(), vec!["type"]);
 }
@@ -54,15 +60,21 @@ fn test_nested() {
         jkl: Vec<i32>,
     }
 
-    let inner_kind = Kind::Struct(vec![
-        ("ghi".to_string(), Kind::Long),
-        ("jkl".to_string(), Kind::List(Box::new(Kind::Int))),
-    ]);
-    Test::check_kind(&Kind::Struct(vec![
-        ("abc".to_string(), Kind::String),
-        ("def".to_string(), inner_kind.clone()),
-        ("def2".to_string(), Kind::List(Box::new(inner_kind))),
-    ]))
+    let inner_kind = DataType::Struct(
+        vec![
+            Field::new("ghi", DataType::Int64, false),
+            Field::new("jkl", DataType::new_list(DataType::Int32, false), false),
+        ]
+        .into(),
+    );
+    Test::check_datatype(&DataType::Struct(
+        vec![
+            Field::new("abc", DataType::Utf8, false),
+            Field::new("def", inner_kind.clone(), false),
+            Field::new("def2", DataType::new_list(inner_kind, false), false),
+        ]
+        .into(),
+    ))
     .unwrap();
 
     assert_eq!(

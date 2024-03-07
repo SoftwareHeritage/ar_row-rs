@@ -14,8 +14,6 @@ you may try to define the `ORC_DISABLE_HDFS` environment variable.
 
 The `ar_row_derive` crate provides a custom `derive` macro.
 
-# `ar_row_derive` examples
-
 ## `RowIterator` API
 
 <!-- Keep this in sync with ar_row_derive/src/lib.rs -->
@@ -23,12 +21,16 @@ The `ar_row_derive` crate provides a custom `derive` macro.
 ```rust
 extern crate ar_row;
 extern crate ar_row_derive;
+extern crate datafusion_orc;
 
+use std::fs::File;
 use std::num::NonZeroU64;
+
+use datafusion_orc::projection::ProjectionMask;
+use datafusion_orc::{ArrowReader, ArrowReaderBuilder};
 
 use ar_row::deserialize::{OrcDeserialize, OrcStruct};
 use ar_row::row_iterator::RowIterator;
-use ar_row::reader;
 use ar_row_derive::OrcDeserialize;
 
 // Define structure
@@ -38,13 +40,16 @@ struct Test1 {
 }
 
 // Open file
-let orc_path = "../ar_row/orc/examples/TestOrcFile.test1.orc";
-let input_stream = reader::InputStream::from_local_file(orc_path).expect("Could not open .orc");
-let reader = reader::Reader::new(input_stream).expect("Could not read .orc");
-
-let batch_size = NonZeroU64::new(1024).unwrap();
-let mut rows: Vec<Option<Test1>> = RowIterator::new(&reader, batch_size)
-    .expect("Could not open ORC file")
+let orc_path = "../test_data/TestOrcFile.test1.orc";
+let file = File::open(orc_path).expect("could not open .orc");
+let builder = ArrowReaderBuilder::try_new(file).expect("could not make builder");
+let projection = ProjectionMask::named_roots(
+    builder.file_metadata().root_data_type(),
+    &["long1"],
+);
+let reader = builder.with_projection(projection).build();
+let mut rows: Vec<Option<Test1>> = RowIterator::new(reader.map(|batch| batch.unwrap()))
+    .expect("Could not create iterator")
     .collect();
 
 assert_eq!(
@@ -60,61 +65,6 @@ assert_eq!(
 );
 ```
 
-## Loop API
-
-`RowIterator` clones structures before yielding them. This can be avoided by looping
-and writing directly to a buffer:
-
-<!-- Keep this in sync with ar_row_derive/src/lib.rs -->
-
-```rust
-extern crate ar_row;
-extern crate ar_row_derive;
-
-use ar_row::deserialize::{CheckableKind, OrcDeserialize, OrcStruct};
-use ar_row::reader;
-use ar_row_derive::OrcDeserialize;
-
-// Define structure
-#[derive(OrcDeserialize, Default, Debug, PartialEq, Eq)]
-struct Test1 {
-    long1: Option<i64>,
-}
-
-// Open file
-let orc_path = "../ar_row/orc/examples/TestOrcFile.test1.orc";
-let input_stream = reader::InputStream::from_local_file(orc_path).expect("Could not open .orc");
-let reader = reader::Reader::new(input_stream).expect("Could not read .orc");
-
-// Only read columns we need
-let options = reader::RowReaderOptions::default().include_names(Test1::columns());
-
-let mut row_reader = reader.row_reader(&options).expect("Could not open ORC file");
-Test1::check_kind(&row_reader.selected_kind()).expect("Unexpected schema");
-
-let mut rows: Vec<Option<Test1>> = Vec::new();
-
-// Allocate work buffer
-let mut batch = row_reader.row_batch(1024);
-
-// Read structs until the end
-while row_reader.read_into(&mut batch) {
-    let new_rows = Option::<Test1>::from_vector_batch(&batch.borrow()).unwrap();
-    rows.extend(new_rows);
-}
-
-assert_eq!(
-    rows,
-    vec![
-        Some(Test1 {
-            long1: Some(9223372036854775807)
-        }),
-        Some(Test1 {
-            long1: Some(9223372036854775807)
-        })
-    ]
-);
-```
 
 ## Nested structures
 
@@ -145,65 +95,4 @@ struct Test1ItemOption {
     int1: Option<i32>,
     string1: Option<String>,
 }
-```
-
-# `ar_row` examples
-
-## ColumnTree API
-
-Columns can also be read directly without writing their values to structures.
-This is particularly useful to read files whose schema is not known at compile time.
-
-## Low-level API
-
-This reads batches directly from the C++ library, and leaves the Rust code to dynamically
-cast base vectors to more specific types; here string vectors.
-
-```rust
-extern crate ar_row;
-extern crate ar_row_derive;
-
-use ar_row::reader;
-use ar_row::vector::ColumnVectorBatch;
-
-let input_stream = reader::InputStream::from_local_file("../ar_row/orc/examples/TestOrcFile.test1.orc")
-    .expect("Could not open");
-
-let reader = reader::Reader::new(input_stream).expect("Could not read");
-
-println!("{:#?}", reader.kind()); // Prints the type of columns in the file
-
-let mut row_reader = reader.row_reader(&reader::RowReaderOptions::default()).unwrap();
-let mut batch = row_reader.row_batch(1024);
-
-let mut total_elements = 0;
-let mut all_strings: Vec<String> = Vec::new();
-while row_reader.read_into(&mut batch) {
-    total_elements += (&batch).num_elements();
-
-    let struct_vector = batch.borrow().try_into_structs().unwrap();
-    let vectors = struct_vector.fields();
-
-    for vector in vectors {
-        match vector.try_into_strings() {
-            Ok(string_vector) => {
-                for s in string_vector.iter() {
-                    all_strings.push(
-                        std::str::from_utf8(s.unwrap_or(b"<null>"))
-                        .unwrap().to_owned())
-                }
-            }
-            Err(e) => {}
-        }
-    }
-}
-
-assert_eq!(total_elements, 2);
-assert_eq!(
-    all_strings,
-    vec!["\0\u{1}\u{2}\u{3}\u{4}", "", "hi", "bye"]
-        .iter()
-        .map(|s| s.to_owned())
-        .collect::<Vec<_>>()
-);
 ```

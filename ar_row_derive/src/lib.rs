@@ -1,4 +1,4 @@
-// Copyright (C) 2023 The Software Heritage developers
+// Copyright (C) 2023-2024 The Software Heritage developers
 // See the AUTHORS file at the top-level directory of this distribution
 // License: GNU General Public License version 3, or any later version
 // See top-level LICENSE file for more information
@@ -37,12 +37,16 @@
 //! ```
 //! extern crate ar_row;
 //! extern crate ar_row_derive;
+//! extern crate datafusion_orc;
 //!
+//! use std::fs::File;
 //! use std::num::NonZeroU64;
+//! 
+//! use datafusion_orc::projection::ProjectionMask;
+//! use datafusion_orc::{ArrowReader, ArrowReaderBuilder};
 //!
 //! use ar_row::deserialize::{OrcDeserialize, OrcStruct};
 //! use ar_row::row_iterator::RowIterator;
-//! use ar_row::reader;
 //! use ar_row_derive::OrcDeserialize;
 //!
 //! // Define structure
@@ -52,67 +56,17 @@
 //! }
 //!
 //! // Open file
-//! let orc_path = "../ar_row/orc/examples/TestOrcFile.test1.orc";
-//! let input_stream = reader::InputStream::from_local_file(orc_path).expect("Could not open .orc");
-//! let reader = reader::Reader::new(input_stream).expect("Could not read .orc");
-//!
-//! let batch_size = NonZeroU64::new(1024).unwrap();
-//! let mut rows: Vec<Option<Test1>> = RowIterator::new(&reader, batch_size)
-//!     .expect("Could not open ORC file")
-//!     .collect();
-//!
-//! assert_eq!(
-//!     rows,
-//!     vec![
-//!         Some(Test1 {
-//!             long1: Some(9223372036854775807)
-//!         }),
-//!         Some(Test1 {
-//!             long1: Some(9223372036854775807)
-//!         })
-//!     ]
+//! let orc_path = "../test_data/TestOrcFile.test1.orc";
+//! let file = File::open(orc_path).expect("could not open .orc");
+//! let builder = ArrowReaderBuilder::try_new(file).expect("could not make builder");
+//! let projection = ProjectionMask::named_roots(
+//!     builder.file_metadata().root_data_type(),
+//!     &["long1"],
 //! );
-//! ```
-//!
-//! Or equivalently, to avoid cloning structures:
-//!
-//! <!-- Keep this in sync with README.md -->
-//!
-//! ```
-//! extern crate ar_row;
-//! extern crate ar_row_derive;
-//!
-//! use ar_row::deserialize::{CheckableKind, OrcDeserialize, OrcStruct};
-//! use ar_row::reader;
-//! use ar_row_derive::OrcDeserialize;
-//!
-//! // Define structure
-//! #[derive(OrcDeserialize, Default, Debug, PartialEq, Eq)]
-//! struct Test1 {
-//!     long1: Option<i64>,
-//! }
-//!
-//! // Open file
-//! let orc_path = "../ar_row/orc/examples/TestOrcFile.test1.orc";
-//! let input_stream = reader::InputStream::from_local_file(orc_path).expect("Could not open .orc");
-//! let reader = reader::Reader::new(input_stream).expect("Could not read .orc");
-//!
-//! // Only read columns we need
-//! let options = reader::RowReaderOptions::default().include_names(Test1::columns());
-//!
-//! let mut row_reader = reader.row_reader(&options).expect("Could not open ORC file");
-//! Test1::check_kind(&row_reader.selected_kind()).expect("Unexpected schema");
-//!
-//! let mut rows: Vec<Option<Test1>> = Vec::new();
-//!
-//! // Allocate work buffer
-//! let mut batch = row_reader.row_batch(1024);
-//!
-//! // Read structs until the end
-//! while row_reader.read_into(&mut batch) {
-//!     let new_rows = Option::<Test1>::from_vector_batch(&batch.borrow()).unwrap();
-//!     rows.extend(new_rows);
-//! }
+//! let reader = builder.with_projection(projection).build();
+//! let mut rows: Vec<Option<Test1>> = RowIterator::new(reader.map(|batch| batch.unwrap()))
+//!     .expect("Could not create iterator")
+//!     .collect();
 //!
 //! assert_eq!(
 //!     rows,
@@ -146,7 +100,7 @@
 //!     long1: Option<i64>,
 //!     float1: Option<f32>,
 //!     double1: Option<f64>,
-//!     bytes1: Option<Vec<u8>>,
+//!     bytes1: Option<Box<[u8]>>,
 //!     string1: Option<String>,
 //!     list: Option<Vec<Option<Test1ItemOption>>>,
 //! }
@@ -211,24 +165,23 @@ fn impl_struct(ident: &Ident, field_names: Vec<&Ident>, field_types: Vec<&Type>)
         .map(|field_name| format_ident!("{}", field_name))
         .collect();
 
-    let check_kind_impl = quote!(
+    let check_datatype_impl = quote!(
         impl ::ar_row::deserialize::CheckableKind for #ident {
-            fn check_kind(kind: &::ar_row::kind::Kind) -> Result<(), String> {
-                use ::ar_row::kind::Kind;
-
-                match kind {
-                    Kind::Struct(fields) => {
+            fn check_datatype(datatype: &::ar_row::arrow::datatypes::DataType) -> Result<(), String> {
+                use ::ar_row::arrow::datatypes::DataType;
+                match datatype {
+                    DataType::Struct(fields) => {
                         let mut fields = fields.iter().enumerate();
                         let mut errors = Vec::new();
                         #(
                             match fields.next() {
-                                Some((i, (field_name, field_type))) => {
-                                    if field_name != stringify!(#unescaped_field_names) {
+                                Some((i, field)) => {
+                                    if field.name() != stringify!(#unescaped_field_names) {
                                         errors.push(format!(
                                                 "Field #{} must be called {}, not {}",
-                                                i, stringify!(#unescaped_field_names), field_name))
+                                                i, stringify!(#unescaped_field_names), field.name()))
                                     }
-                                    else if let Err(s) = <#field_types>::check_kind(field_type) {
+                                    else if let Err(s) = <#field_types>::check_datatype(field.data_type()) {
                                         errors.push(format!(
                                             "Field {} cannot be decoded: {}",
                                             stringify!(#unescaped_field_names), s));
@@ -253,7 +206,7 @@ fn impl_struct(ident: &Ident, field_names: Vec<&Ident>, field_types: Vec<&Type>)
                     _ => Err(format!(
                         "{} must be decoded from Kind::Struct, not {:?}",
                         stringify!(#ident),
-                        kind))
+                        datatype))
                 }
             }
         }
@@ -286,16 +239,22 @@ fn impl_struct(ident: &Ident, field_names: Vec<&Ident>, field_types: Vec<&Type>)
     );
 
     let prelude = quote!(
+        use ::std::sync::Arc;
         use ::std::convert::TryInto;
         use ::std::collections::HashMap;
 
+        use ::ar_row::arrow::array::Array;
         use ::ar_row::deserialize::DeserializationError;
         use ::ar_row::deserialize::OrcDeserialize;
-        use ::ar_row::vector::{ColumnVectorBatch, BorrowedColumnVectorBatch};
         use ::ar_row::deserialize::DeserializationTarget;
 
-        let src = src.try_into_structs().map_err(DeserializationError::MismatchedColumnKind)?;
-        let columns = src.fields();
+        let src = src.as_struct_opt().ok_or_else(|| {
+            DeserializationError::MismatchedColumnKind(format!(
+                "Could not cast {:?} array to struct array",
+                src.data_type(),
+            ))
+        })?;
+        let columns = src.columns();
         assert_eq!(
             columns.len(),
             #num_fields,
@@ -303,30 +262,30 @@ fn impl_struct(ident: &Ident, field_names: Vec<&Ident>, field_types: Vec<&Type>)
             stringify!(ident), #num_fields, columns.len());
         let mut columns = columns.into_iter();
 
-        let dst_len: u64 = dst.len().try_into().map_err(DeserializationError::UsizeOverflow)?;
-        if src.num_elements() > dst_len {
-            return Err(::ar_row::deserialize::DeserializationError::MismatchedLength { src: src.num_elements(), dst: dst_len });
+        if src.len() > dst.len() {
+            println!("{} src = {} dst = {}", stringify!(#ident), src.len(), dst.len());
+            return Err(::ar_row::deserialize::DeserializationError::MismatchedLength { src: src.len(), dst: dst.len() });
         }
     );
 
     let read_from_vector_batch_impl = quote!(
         impl ::ar_row::deserialize::OrcDeserialize for #ident {
             fn read_from_vector_batch<'a, 'b, T> (
-                src: &::ar_row::vector::BorrowedColumnVectorBatch, mut dst: &'b mut T
+                src: impl ::ar_row::arrow::array::Array + ::ar_row::arrow::array::AsArray, mut dst: &'b mut T
             ) -> Result<usize, ::ar_row::deserialize::DeserializationError>
             where
                 &'b mut T: ::ar_row::deserialize::DeserializationTarget<'a, Item=#ident> + 'b {
                 #prelude
 
-                match src.not_null() {
+                match src.nulls() {
                     None => {
                         for struct_ in dst.iter_mut() {
                             *struct_ = Default::default()
                         }
                     },
-                    Some(not_null) => {
-                        for (struct_, &b) in dst.iter_mut().zip(not_null) {
-                            if b != 0 {
+                    Some(nulls) => {
+                        for (struct_, b) in dst.iter_mut().zip(nulls) {
+                            if b {
                                 *struct_ = Default::default()
                             }
                         }
@@ -334,15 +293,15 @@ fn impl_struct(ident: &Ident, field_names: Vec<&Ident>, field_types: Vec<&Type>)
                 }
 
                 #(
-                    let column: BorrowedColumnVectorBatch = columns.next().expect(
+                    let column: &Arc<_> = columns.next().expect(
                         &format!("Failed to get '{}' column", stringify!(#field_names)));
                     OrcDeserialize::read_from_vector_batch::<ar_row::deserialize::MultiMap<&mut T, _>>(
-                        &column,
+                        column.clone(),
                         &mut dst.map(|struct_| &mut struct_.#field_names),
                     )?;
                 )*
 
-                Ok(src.num_elements().try_into().unwrap())
+                Ok(src.len())
             }
         }
     );
@@ -350,21 +309,21 @@ fn impl_struct(ident: &Ident, field_names: Vec<&Ident>, field_types: Vec<&Type>)
     let read_options_from_vector_batch_impl = quote!(
         impl ::ar_row::deserialize::OrcDeserializeOption for #ident {
             fn read_options_from_vector_batch<'a, 'b, T> (
-                src: &::ar_row::vector::BorrowedColumnVectorBatch, mut dst: &'b mut T
+                src: impl ::ar_row::arrow::array::Array + ::ar_row::arrow::array::AsArray, mut dst: &'b mut T
             ) -> Result<usize, ::ar_row::deserialize::DeserializationError>
             where
                 &'b mut T: ::ar_row::deserialize::DeserializationTarget<'a, Item=Option<#ident>> + 'b {
                 #prelude
 
-                match src.not_null() {
+                match src.nulls() {
                     None => {
                         for struct_ in dst.iter_mut() {
                             *struct_ = Some(Default::default())
                         }
                     },
-                    Some(not_null) => {
-                        for (struct_, &b) in dst.iter_mut().zip(not_null) {
-                            if b != 0 {
+                    Some(nulls) => {
+                        for (struct_, b) in dst.iter_mut().zip(nulls) {
+                            if !b {
                                 *struct_ = Some(Default::default())
                             }
                         }
@@ -372,21 +331,21 @@ fn impl_struct(ident: &Ident, field_names: Vec<&Ident>, field_types: Vec<&Type>)
                 }
 
                 #(
-                    let column: BorrowedColumnVectorBatch = columns.next().expect(
+                    let column: &Arc<_> = columns.next().expect(
                         &format!("Failed to get '{}' column", stringify!(#field_names)));
                     OrcDeserialize::read_from_vector_batch::<::ar_row::deserialize::MultiMap<&mut T, _>>(
-                        &column,
+                        column.clone(),
                         &mut dst.map(|struct_| &mut unsafe { struct_.as_mut().unwrap_unchecked() }.#field_names),
                     )?;
                 )*
 
-                Ok(src.num_elements().try_into().unwrap())
+                Ok(src.len())
             }
         }
     );
 
     quote!(
-        #check_kind_impl
+        #check_datatype_impl
         #orc_struct_impl
 
         #read_from_vector_batch_impl

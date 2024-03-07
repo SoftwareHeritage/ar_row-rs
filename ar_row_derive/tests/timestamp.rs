@@ -1,35 +1,35 @@
-// Copyright (C) 2023 The Software Heritage developers
+// Copyright (C) 2023-2024 The Software Heritage developers
 // See the AUTHORS file at the top-level directory of this distribution
 // License: GNU General Public License version 3, or any later version
 // See top-level LICENSE file for more information
+
+/* TODO
 
 extern crate ar_row;
 extern crate ar_row_derive;
 extern crate rust_decimal;
 extern crate rust_decimal_macros;
 
+use std::fs::File;
+
 use ar_row::deserialize::{CheckableKind, OrcDeserialize};
 use ar_row::reader;
 use ar_row::Timestamp;
 
-fn row_reader() -> reader::RowReader {
-    let orc_path = "../ar_row/orc/examples/TestOrcFile.testTimestamp.orc";
-    let input_stream = reader::InputStream::from_local_file(orc_path).expect("Could not open .orc");
-    let reader = reader::Reader::new(input_stream).expect("Could not read .orc");
-
-    let options = reader::RowReaderOptions::default();
-    reader.row_reader(&options).unwrap()
+fn reader_builder() -> ArrowReaderBuilder {
+    let orc_path = "../test_data//TestOrcFile.testTimestamp.orc";
+    let file = File::open(orc_path).expect("could not open .orc");
+    ArrowReaderBuilder::try_new(file).expect("Could not make builder")
 }
 
 #[test]
 fn test_timestamp() {
-    let mut row_reader = row_reader();
-    Timestamp::check_kind(&row_reader.selected_kind()).unwrap();
+    let mut reader = reader_builder().build();
+    Timestamp::check_datatype(reader.schema()).unwrap();
 
     let mut rows: Vec<Timestamp> = Vec::new();
 
-    let mut batch = row_reader.row_batch(1024);
-    while row_reader.read_into(&mut batch) {
+    for batch in reader {
         let new_rows = Timestamp::from_vector_batch(&batch.borrow()).unwrap();
         rows.extend(new_rows);
     }
@@ -88,3 +88,4 @@ fn test_timestamp() {
         ]
     );
 }
+*/

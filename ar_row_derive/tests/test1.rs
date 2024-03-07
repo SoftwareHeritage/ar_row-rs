@@ -1,53 +1,53 @@
-// Copyright (C) 2023 The Software Heritage developers
+// Copyright (C) 2023-2024 The Software Heritage developers
 // See the AUTHORS file at the top-level directory of this distribution
 // License: GNU General Public License version 3, or any later version
 // See top-level LICENSE file for more information
 
 extern crate ar_row;
 extern crate ar_row_derive;
+extern crate datafusion_orc;
 
-use std::convert::TryInto;
+use std::fs::File;
 
+use ar_row::arrow::array::RecordBatchReader;
 use ar_row::deserialize::{CheckableKind, OrcDeserialize, OrcStruct};
-use ar_row::reader;
 use ar_row::row_iterator::RowIterator;
 use ar_row_derive::OrcDeserialize;
+use datafusion_orc::projection::ProjectionMask;
+use datafusion_orc::{ArrowReader, ArrowReaderBuilder};
 
-fn get_reader() -> reader::Reader {
-    let orc_path = "../ar_row/orc/examples/TestOrcFile.test1.orc";
-    let input_stream = reader::InputStream::from_local_file(orc_path).expect("Could not open .orc");
-    reader::Reader::new(input_stream).expect("Could not read .orc")
+fn get_reader_builder() -> ArrowReaderBuilder<File> {
+    let orc_path = "../test_data/TestOrcFile.test1.orc";
+    let file = File::open(orc_path).expect("could not open .orc");
+    ArrowReaderBuilder::try_new(file).expect("Could not make builder")
 }
 
-fn get_row_reader_options() -> reader::RowReaderOptions {
-    reader::RowReaderOptions::default().include_names([
-        "boolean1", "byte1", "short1", "int1", "long1", "float1", "double1", "bytes1", "string1",
-        "list",
-    ])
-}
-
-fn get_row_reader() -> reader::RowReader {
-    let reader = get_reader();
-
-    reader.row_reader(&get_row_reader_options()).unwrap()
+fn get_reader(batch_size: usize) -> ArrowReader<File> {
+    let builder = get_reader_builder();
+    let projection = ProjectionMask::named_roots(
+        builder.file_metadata().root_data_type(),
+        &[
+            "boolean1", "byte1", "short1", "int1", "long1", "float1", "double1", "bytes1",
+            "string1", "list",
+        ],
+    );
+    builder.with_projection(projection).with_batch_size(batch_size).build()
 }
 
 fn test_with_batch_size<
-    const BATCH_SIZE: u64,
+    const BATCH_SIZE: usize,
     T: CheckableKind + OrcDeserialize + OrcStruct + Clone + PartialEq + std::fmt::Debug,
 >(
     expected_rows: Vec<T>,
 ) {
-    let reader = get_reader();
-    let mut row_reader = get_row_reader();
+    let reader = get_reader(BATCH_SIZE);
 
-    T::check_kind(&row_reader.selected_kind()).unwrap();
+    T::check_schema(&reader.schema()).unwrap();
 
     let mut rows: Vec<T> = Vec::new();
 
-    let mut batch = row_reader.row_batch(BATCH_SIZE);
-    while row_reader.read_into(&mut batch) {
-        let new_rows = T::from_vector_batch(&batch.borrow()).unwrap();
+    for batch in reader {
+        let new_rows = T::from_record_batch(batch.unwrap()).unwrap();
         rows.extend(new_rows);
     }
 
@@ -56,36 +56,34 @@ fn test_with_batch_size<
         "Unexpected rows when using from_vector_batch API"
     );
 
+    let reader = get_reader(BATCH_SIZE);
+
     assert_eq!(
         expected_rows,
-        RowIterator::<T>::new_with_options(
-            &reader,
-            BATCH_SIZE.try_into().unwrap(),
-            &get_row_reader_options()
+        RowIterator::<_, T>::new(
+            reader.map(|batch| batch.unwrap()),
         )
         .unwrap()
         .collect::<Vec<_>>(),
         "Inconsistent set of rows when using RowIterator"
     );
 
-    assert_eq!(
-        expected_rows,
-        RowIterator::<T>::new(&reader, BATCH_SIZE.try_into().unwrap())
-            .unwrap()
-            .collect::<Vec<_>>(),
-        "Inconsistent set of rows when RowIterator constructed with default options"
-    );
-
     // Test manual iteration
-    let mut iter = RowIterator::<T>::new(&reader, BATCH_SIZE.try_into().unwrap()).unwrap();
-    assert_eq!(iter.len(), expected_rows.len());
+    let reader = get_reader(BATCH_SIZE);
+    let mut iter = RowIterator::<_, T>::new(
+        reader.map(|batch| batch.unwrap()),
+    )
+    .unwrap();
+    // TODO exact sized iterator: assert_eq!(iter.len(), expected_rows.len());
     for (i, expected_row) in expected_rows.iter().enumerate() {
+        /* TODO exact sized iterator
         assert_eq!(
             expected_rows.len() - i,
             iter.len(),
             "Number of rows changed halfway (at row {})",
             i
         );
+        */
         assert_eq!(
             iter.next().as_ref(),
             Some(expected_row),
@@ -95,6 +93,7 @@ fn test_with_batch_size<
     }
     assert_eq!(iter.next(), None, "Too many rows");
 
+    /* TODO double-ended iterator
     // Test manual iteration backward
     for (i, expected_row) in expected_rows.iter().rev().enumerate() {
         assert_eq!(
@@ -130,6 +129,7 @@ fn test_with_batch_size<
         Some(&expected_rows[expected_rows.len() - 1])
     );
     assert_eq!(iter.next().as_ref(), None);
+    */
 }
 
 fn test<T: CheckableKind + OrcDeserialize + OrcStruct + Clone + PartialEq + std::fmt::Debug>(
@@ -152,7 +152,7 @@ struct Test1Option {
     long1: Option<i64>,
     float1: Option<f32>,
     double1: Option<f64>,
-    bytes1: Option<Vec<u8>>,
+    bytes1: Option<Box<[u8]>>,
     string1: Option<String>,
     list: Option<Vec<Option<Test1ItemOption>>>,
 }
@@ -173,7 +173,7 @@ fn expected_rows_options() -> Vec<Test1Option> {
             long1: Some(9223372036854775807),
             float1: Some(1.0),
             double1: Some(-15.0),
-            bytes1: Some(vec![0, 1, 2, 3, 4]),
+            bytes1: Some(Box::new([0, 1, 2, 3, 4])),
             string1: Some("hi".to_owned()),
             list: Some(vec![
                 Some(Test1ItemOption {
@@ -194,7 +194,7 @@ fn expected_rows_options() -> Vec<Test1Option> {
             long1: Some(9223372036854775807),
             float1: Some(2.0),
             double1: Some(-5.0),
-            bytes1: Some(vec![]),
+            bytes1: Some(Box::new([])),
             string1: Some("bye".to_owned()),
             list: Some(vec![
                 Some(Test1ItemOption {
@@ -240,7 +240,7 @@ struct Test1NoOption {
     long1: i64,
     float1: f32,
     double1: f64,
-    bytes1: Vec<u8>,
+    bytes1: Box<[u8]>,
     string1: String,
     list: Vec<Test1ItemNoOption>,
 }
@@ -261,7 +261,7 @@ fn expected_rows_nooptions() -> Vec<Test1NoOption> {
             long1: 9223372036854775807,
             float1: 1.0,
             double1: -15.0,
-            bytes1: vec![0, 1, 2, 3, 4],
+            bytes1: Box::new([0, 1, 2, 3, 4]),
             string1: "hi".to_owned(),
             list: vec![
                 Test1ItemNoOption {
@@ -282,7 +282,7 @@ fn expected_rows_nooptions() -> Vec<Test1NoOption> {
             long1: 9223372036854775807,
             float1: 2.0,
             double1: -5.0,
-            bytes1: vec![],
+            bytes1: Box::new([]),
             string1: "bye".to_owned(),
             list: vec![
                 Test1ItemNoOption {

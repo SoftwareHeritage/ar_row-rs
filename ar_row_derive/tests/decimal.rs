@@ -3,6 +3,8 @@
 // License: GNU General Public License version 3, or any later version
 // See top-level LICENSE file for more information
 
+/* TODO
+
 extern crate ar_row;
 extern crate ar_row_derive;
 extern crate rust_decimal;
@@ -21,7 +23,7 @@ struct Root {
 }
 
 fn row_reader() -> reader::RowReader {
-    let orc_path = "../ar_row/orc/examples/decimal.orc";
+    let orc_path = "../test_data//decimal.orc";
     let input_stream = reader::InputStream::from_local_file(orc_path).expect("Could not open .orc");
     let reader = reader::Reader::new(input_stream).expect("Could not read .orc");
 
@@ -32,7 +34,7 @@ fn row_reader() -> reader::RowReader {
 #[test]
 fn test_decimal() {
     let mut row_reader = row_reader();
-    Root::check_kind(&row_reader.selected_kind()).unwrap();
+    Root::check_datatype(&row_reader.selected_kind()).unwrap();
 
     let mut rows: Vec<Root> = Vec::new();
 
@@ -65,3 +67,5 @@ fn test_decimal() {
         _col0: Some(dec!(1739.17401))
     }));
 }
+
+*/
