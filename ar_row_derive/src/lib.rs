@@ -4,31 +4,27 @@
 // See top-level LICENSE file for more information
 
 //! Custom `derive` for the [`ar_row`](../ar_row/) crate, to deserialize `structs`
-//! using Apache ORC C++ library.
+//! in a row-oriented way from Apache Arrow
 //!
 //! # Supported types
 //!
 //! Structures can have fields of the following types:
 //!
-//! * [`bool`], [`i8`], [`i16`], [`i32`], [`i64`], [`f32`], [`f64`], [`String`], [`Vec<u8>`](Vec),
-//!   mapping to their respective ORC type
-//! * `Vec<T>` when `T` is a supported type, mapping to an ORC list
+//! * [`bool`], [`i8`], [`i16`], [`i32`], [`i64`], [`u8`], [`u16`], [`u32`], [`u64`], [`f32`], [`f64`], [`String`], `Box<[u8]>` (binary strings),
+//!   mapping to their respective Arrow type
+//! * `Vec<T>` when `T` is a supported type, mapping to an Arrow list
 //! * `HashMap<K, V>` and `Vec<(K, V)>` are not supported yet to deserialize ORC maps
 //!   (see <https://gitlab.softwareheritage.org/swh/devel/ar_row-rs/-/issues/1>)
 //!
 //! # About null values
 //!
-//! In order to support all ORC files, every single type should be wrapped in `Option`
+//! In order to support all Arrow arrays, every single type should be wrapped in `Option`
 //! (eg. `struct<a:int, b:list<string>>` in ORC should be
 //! `a: Option<i32>, b: Option<Vec<Option<String>>>`), but this is cumbersome, and
 //! may have high overhead if you need to check it.
 //!
 //! If you omit `Option`, then `ar_row_derive` will return an error early for files
 //! containing null values, and avoid this overhead for files which don't.
-//!
-//! # Panics
-//!
-//! See [`ar_row`'s documentation](../ar_row/#panics).
 //!
 //! # Examples
 //!
@@ -41,16 +37,70 @@
 //!
 //! use std::fs::File;
 //! use std::num::NonZeroU64;
-//! 
+//!
 //! use datafusion_orc::projection::ProjectionMask;
 //! use datafusion_orc::{ArrowReader, ArrowReaderBuilder};
 //!
-//! use ar_row::deserialize::{OrcDeserialize, OrcStruct};
+//! use ar_row::deserialize::{ArRowDeserialize, ArrowStruct};
 //! use ar_row::row_iterator::RowIterator;
-//! use ar_row_derive::OrcDeserialize;
+//! use ar_row_derive::ArRowDeserialize;
 //!
 //! // Define structure
-//! #[derive(OrcDeserialize, Clone, Default, Debug, PartialEq, Eq)]
+//! #[derive(ArRowDeserialize, Clone, Default, Debug, PartialEq, Eq)]
+//! struct Test1 {
+//!     long1: Option<i64>,
+//! }
+//!
+//! // Open file
+//! let orc_path = "../test_data/TestOrcFile.test1.orc";
+//! let file = File::open(orc_path).expect("could not open .orc");
+//! let builder = ArrowReaderBuilder::try_new(file).expect("could not make builder");
+//! let projection = ProjectionMask::named_roots(
+//!     builder.file_metadata().root_data_type(),
+//!     &["long1"],
+//! );
+//! let reader = builder.with_projection(projection).build();
+//! let rows: Vec<Option<Test1>> = reader
+//!     .flat_map(|batch| -> Vec<Option<Test1>> {
+//!         <Option<Test1>>::from_record_batch(batch.unwrap()).unwrap()
+//!     })
+//!     .collect();
+//!
+//! assert_eq!(
+//!     rows,
+//!     vec![
+//!         Some(Test1 {
+//!             long1: Some(9223372036854775807)
+//!         }),
+//!         Some(Test1 {
+//!             long1: Some(9223372036854775807)
+//!         })
+//!     ]
+//! );
+//! ```
+//!
+//! Or equivalently, using `RowIterator` to reuse the buffer between record batches,
+//! but needs `RecordBatch` instead of `Result<RecordBatch, _>` as input:
+//!
+//! <!-- Keep this in sync with README.md -->
+//!
+//! ```
+//! extern crate ar_row;
+//! extern crate ar_row_derive;
+//! extern crate datafusion_orc;
+//!
+//! use std::fs::File;
+//! use std::num::NonZeroU64;
+//!
+//! use datafusion_orc::projection::ProjectionMask;
+//! use datafusion_orc::{ArrowReader, ArrowReaderBuilder};
+//!
+//! use ar_row::deserialize::{ArRowDeserialize, ArrowStruct};
+//! use ar_row::row_iterator::RowIterator;
+//! use ar_row_derive::ArRowDeserialize;
+//!
+//! // Define structure
+//! #[derive(ArRowDeserialize, Clone, Default, Debug, PartialEq, Eq)]
 //! struct Test1 {
 //!     long1: Option<i64>,
 //! }
@@ -89,9 +139,9 @@
 //! extern crate ar_row;
 //! extern crate ar_row_derive;
 //!
-//! use ar_row_derive::OrcDeserialize;
+//! use ar_row_derive::ArRowDeserialize;
 //!
-//! #[derive(OrcDeserialize, Default, Debug, PartialEq)]
+//! #[derive(ArRowDeserialize, Default, Debug, PartialEq)]
 //! struct Test1Option {
 //!     boolean1: Option<bool>,
 //!     byte1: Option<i8>,
@@ -105,7 +155,7 @@
 //!     list: Option<Vec<Option<Test1ItemOption>>>,
 //! }
 //!
-//! #[derive(OrcDeserialize, Default, Debug, PartialEq)]
+//! #[derive(ArRowDeserialize, Default, Debug, PartialEq)]
 //! struct Test1ItemOption {
 //!     int1: Option<i32>,
 //!     string1: Option<String>,
@@ -122,14 +172,14 @@ use proc_macro2::Ident;
 use quote::{format_ident, quote};
 use syn::*;
 
-/// `#[derive(OrcDeserialize)] struct T { ... }` implements
-/// [`OrcDeserialize`](../ar_row/deserialize/struct.OrcDeserialize.html),
-/// [`CheckableKind`](../ar_row/deserialize/struct.CheckableKind.html), and
-/// [`OrcStruct`](../ar_row/deserialize/struct.OrcStruct.html) for `T`
+/// `#[derive(ArRowDeserialize)] struct T { ... }` implements
+/// [`ArRowDeserialize`](../ar_row/deserialize/struct.ArRowDeserialize.html),
+/// [`CheckableDataType`](../ar_row/deserialize/struct.CheckableDataType.html), and
+/// [`ArrowStruct`](../ar_row/deserialize/struct.ArrowStruct.html) for `T`
 ///
 /// This automatically gives implementations for `Option<T>` and `Vec<T>` as well.
-#[proc_macro_derive(OrcDeserialize)]
-pub fn orc_deserialize(input: TokenStream) -> TokenStream {
+#[proc_macro_derive(ArRowDeserialize)]
+pub fn ar_row_deserialize(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
 
     let tokens = match ast.data {
@@ -166,7 +216,7 @@ fn impl_struct(ident: &Ident, field_names: Vec<&Ident>, field_types: Vec<&Type>)
         .collect();
 
     let check_datatype_impl = quote!(
-        impl ::ar_row::deserialize::CheckableKind for #ident {
+        impl ::ar_row::deserialize::CheckableDataType for #ident {
             fn check_datatype(datatype: &::ar_row::arrow::datatypes::DataType) -> Result<(), String> {
                 use ::ar_row::arrow::datatypes::DataType;
                 match datatype {
@@ -204,7 +254,7 @@ fn impl_struct(ident: &Ident, field_names: Vec<&Ident>, field_types: Vec<&Type>)
                         }
                     }
                     _ => Err(format!(
-                        "{} must be decoded from Kind::Struct, not {:?}",
+                        "{} must be decoded from DataType::Struct, not {:?}",
                         stringify!(#ident),
                         datatype))
                 }
@@ -213,7 +263,7 @@ fn impl_struct(ident: &Ident, field_names: Vec<&Ident>, field_types: Vec<&Type>)
     );
 
     let orc_struct_impl = quote!(
-        impl ::ar_row::deserialize::OrcStruct for #ident {
+        impl ::ar_row::deserialize::ArrowStruct for #ident {
             fn columns_with_prefix(prefix: &str) -> Vec<String> {
                 let mut columns = Vec::with_capacity(#num_fields);
 
@@ -223,7 +273,7 @@ fn impl_struct(ident: &Ident, field_names: Vec<&Ident>, field_types: Vec<&Type>)
 
                 #({
                     #[inline(always)]
-                    fn add_columns<FieldType: ::ar_row::deserialize::OrcStruct>(columns: &mut Vec<String>, prefix: &str, _: FieldType) {
+                    fn add_columns<FieldType: ::ar_row::deserialize::ArrowStruct>(columns: &mut Vec<String>, prefix: &str, _: FieldType) {
                         let mut field_name_prefix = prefix.to_string();
                         if prefix.len() != 0 {
                             field_name_prefix.push_str(".");
@@ -245,11 +295,11 @@ fn impl_struct(ident: &Ident, field_names: Vec<&Ident>, field_types: Vec<&Type>)
 
         use ::ar_row::arrow::array::Array;
         use ::ar_row::deserialize::DeserializationError;
-        use ::ar_row::deserialize::OrcDeserialize;
+        use ::ar_row::deserialize::ArRowDeserialize;
         use ::ar_row::deserialize::DeserializationTarget;
 
         let src = src.as_struct_opt().ok_or_else(|| {
-            DeserializationError::MismatchedColumnKind(format!(
+            DeserializationError::MismatchedColumnDataType(format!(
                 "Could not cast {:?} array to struct array",
                 src.data_type(),
             ))
@@ -268,9 +318,9 @@ fn impl_struct(ident: &Ident, field_names: Vec<&Ident>, field_types: Vec<&Type>)
         }
     );
 
-    let read_from_vector_batch_impl = quote!(
-        impl ::ar_row::deserialize::OrcDeserialize for #ident {
-            fn read_from_vector_batch<'a, 'b, T> (
+    let read_from_array_impl = quote!(
+        impl ::ar_row::deserialize::ArRowDeserialize for #ident {
+            fn read_from_array<'a, 'b, T> (
                 src: impl ::ar_row::arrow::array::Array + ::ar_row::arrow::array::AsArray, mut dst: &'b mut T
             ) -> Result<usize, ::ar_row::deserialize::DeserializationError>
             where
@@ -295,7 +345,7 @@ fn impl_struct(ident: &Ident, field_names: Vec<&Ident>, field_types: Vec<&Type>)
                 #(
                     let column: &Arc<_> = columns.next().expect(
                         &format!("Failed to get '{}' column", stringify!(#field_names)));
-                    OrcDeserialize::read_from_vector_batch::<ar_row::deserialize::MultiMap<&mut T, _>>(
+                    ArRowDeserialize::read_from_array::<ar_row::deserialize::MultiMap<&mut T, _>>(
                         column.clone(),
                         &mut dst.map(|struct_| &mut struct_.#field_names),
                     )?;
@@ -306,9 +356,9 @@ fn impl_struct(ident: &Ident, field_names: Vec<&Ident>, field_types: Vec<&Type>)
         }
     );
 
-    let read_options_from_vector_batch_impl = quote!(
-        impl ::ar_row::deserialize::OrcDeserializeOption for #ident {
-            fn read_options_from_vector_batch<'a, 'b, T> (
+    let read_options_from_array_impl = quote!(
+        impl ::ar_row::deserialize::ArRowDeserializeOption for #ident {
+            fn read_options_from_array<'a, 'b, T> (
                 src: impl ::ar_row::arrow::array::Array + ::ar_row::arrow::array::AsArray, mut dst: &'b mut T
             ) -> Result<usize, ::ar_row::deserialize::DeserializationError>
             where
@@ -333,7 +383,7 @@ fn impl_struct(ident: &Ident, field_names: Vec<&Ident>, field_types: Vec<&Type>)
                 #(
                     let column: &Arc<_> = columns.next().expect(
                         &format!("Failed to get '{}' column", stringify!(#field_names)));
-                    OrcDeserialize::read_from_vector_batch::<::ar_row::deserialize::MultiMap<&mut T, _>>(
+                    ArRowDeserialize::read_from_array::<::ar_row::deserialize::MultiMap<&mut T, _>>(
                         column.clone(),
                         &mut dst.map(|struct_| &mut unsafe { struct_.as_mut().unwrap_unchecked() }.#field_names),
                     )?;
@@ -348,8 +398,8 @@ fn impl_struct(ident: &Ident, field_names: Vec<&Ident>, field_types: Vec<&Type>)
         #check_datatype_impl
         #orc_struct_impl
 
-        #read_from_vector_batch_impl
-        #read_options_from_vector_batch_impl
+        #read_from_array_impl
+        #read_options_from_array_impl
     )
     .into()
 }

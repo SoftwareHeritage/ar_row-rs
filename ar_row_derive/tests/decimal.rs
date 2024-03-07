@@ -13,11 +13,11 @@ extern crate rust_decimal_macros;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 
-use ar_row::deserialize::{CheckableKind, OrcDeserialize};
+use ar_row::deserialize::{CheckableDataType, ArRowDeserialize};
 use ar_row::reader;
-use ar_row_derive::OrcDeserialize;
+use ar_row_derive::ArRowDeserialize;
 
-#[derive(OrcDeserialize, Clone, Debug, PartialEq, Default)]
+#[derive(ArRowDeserialize, Clone, Debug, PartialEq, Default)]
 struct Root {
     _col0: Option<Decimal>,
 }
@@ -40,7 +40,7 @@ fn test_decimal() {
 
     let mut batch = row_reader.row_batch(1024);
     while row_reader.read_into(&mut batch) {
-        let new_rows = Root::from_vector_batch(&batch.borrow()).unwrap();
+        let new_rows = Root::from_array(&batch.borrow()).unwrap();
         rows.extend(new_rows);
     }
 

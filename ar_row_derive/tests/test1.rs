@@ -10,9 +10,9 @@ extern crate datafusion_orc;
 use std::fs::File;
 
 use ar_row::arrow::array::RecordBatchReader;
-use ar_row::deserialize::{CheckableKind, OrcDeserialize, OrcStruct};
+use ar_row::deserialize::{CheckableDataType, ArRowDeserialize, ArrowStruct};
 use ar_row::row_iterator::RowIterator;
-use ar_row_derive::OrcDeserialize;
+use ar_row_derive::ArRowDeserialize;
 use datafusion_orc::projection::ProjectionMask;
 use datafusion_orc::{ArrowReader, ArrowReaderBuilder};
 
@@ -31,12 +31,15 @@ fn get_reader(batch_size: usize) -> ArrowReader<File> {
             "string1", "list",
         ],
     );
-    builder.with_projection(projection).with_batch_size(batch_size).build()
+    builder
+        .with_projection(projection)
+        .with_batch_size(batch_size)
+        .build()
 }
 
 fn test_with_batch_size<
     const BATCH_SIZE: usize,
-    T: CheckableKind + OrcDeserialize + OrcStruct + Clone + PartialEq + std::fmt::Debug,
+    T: CheckableDataType + ArRowDeserialize + ArrowStruct + Clone + PartialEq + std::fmt::Debug,
 >(
     expected_rows: Vec<T>,
 ) {
@@ -53,27 +56,22 @@ fn test_with_batch_size<
 
     assert_eq!(
         expected_rows, rows,
-        "Unexpected rows when using from_vector_batch API"
+        "Unexpected rows when using from_array API"
     );
 
     let reader = get_reader(BATCH_SIZE);
 
     assert_eq!(
         expected_rows,
-        RowIterator::<_, T>::new(
-            reader.map(|batch| batch.unwrap()),
-        )
-        .unwrap()
-        .collect::<Vec<_>>(),
+        RowIterator::<_, T>::new(reader.map(|batch| batch.unwrap()),)
+            .unwrap()
+            .collect::<Vec<_>>(),
         "Inconsistent set of rows when using RowIterator"
     );
 
     // Test manual iteration
     let reader = get_reader(BATCH_SIZE);
-    let mut iter = RowIterator::<_, T>::new(
-        reader.map(|batch| batch.unwrap()),
-    )
-    .unwrap();
+    let mut iter = RowIterator::<_, T>::new(reader.map(|batch| batch.unwrap())).unwrap();
     // TODO exact sized iterator: assert_eq!(iter.len(), expected_rows.len());
     for (i, expected_row) in expected_rows.iter().enumerate() {
         /* TODO exact sized iterator
@@ -132,7 +130,7 @@ fn test_with_batch_size<
     */
 }
 
-fn test<T: CheckableKind + OrcDeserialize + OrcStruct + Clone + PartialEq + std::fmt::Debug>(
+fn test<T: CheckableDataType + ArRowDeserialize + ArrowStruct + Clone + PartialEq + std::fmt::Debug>(
     expected_rows: Vec<T>,
 ) {
     // Using a const generic so it is more obvious on stack traces which value
@@ -143,7 +141,7 @@ fn test<T: CheckableKind + OrcDeserialize + OrcStruct + Clone + PartialEq + std:
     test_with_batch_size::<10, T>(expected_rows.clone());
 }
 
-#[derive(OrcDeserialize, Clone, Default, Debug, PartialEq)]
+#[derive(ArRowDeserialize, Clone, Default, Debug, PartialEq)]
 struct Test1Option {
     boolean1: Option<bool>,
     byte1: Option<i8>,
@@ -157,7 +155,7 @@ struct Test1Option {
     list: Option<Vec<Option<Test1ItemOption>>>,
 }
 
-#[derive(OrcDeserialize, Clone, Default, Debug, PartialEq)]
+#[derive(ArRowDeserialize, Clone, Default, Debug, PartialEq)]
 struct Test1ItemOption {
     int1: Option<i32>,
     string1: Option<String>,
@@ -214,7 +212,7 @@ fn expected_rows_options() -> Vec<Test1Option> {
     ]
 }
 
-/// Tests `Option<Test1Option>::from_vector_batch()`
+/// Tests `Option<Test1Option>::from_array()`
 #[test]
 fn test1_inner_option_outer_option() {
     test::<Option<Test1Option>>(
@@ -225,13 +223,13 @@ fn test1_inner_option_outer_option() {
     );
 }
 
-/// Tests `Test1Option::from_vector_batch()`
+/// Tests `Test1Option::from_array()`
 #[test]
 fn test1_inner_option_outer_nooption() {
     test::<Test1Option>(expected_rows_options());
 }
 
-#[derive(OrcDeserialize, Clone, Default, Debug, PartialEq)]
+#[derive(ArRowDeserialize, Clone, Default, Debug, PartialEq)]
 struct Test1NoOption {
     boolean1: bool,
     byte1: i8,
@@ -245,7 +243,7 @@ struct Test1NoOption {
     list: Vec<Test1ItemNoOption>,
 }
 
-#[derive(OrcDeserialize, Clone, Default, Debug, PartialEq)]
+#[derive(ArRowDeserialize, Clone, Default, Debug, PartialEq)]
 struct Test1ItemNoOption {
     int1: i32,
     string1: String,
@@ -302,7 +300,7 @@ fn expected_rows_nooptions() -> Vec<Test1NoOption> {
     ]
 }
 
-/// Tests `Option<Test1NoOption>::from_vector_batch()`
+/// Tests `Option<Test1NoOption>::from_array()`
 #[test]
 fn test1_inner_nooption_outer_option() {
     test::<Option<Test1NoOption>>(
@@ -313,7 +311,7 @@ fn test1_inner_nooption_outer_option() {
     );
 }
 
-/// Tests `Test1NoOption::from_vector_batch()`
+/// Tests `Test1NoOption::from_array()`
 #[test]
 fn test1_inner_nooption_outer_nooption() {
     test::<Test1NoOption>(expected_rows_nooptions());

@@ -3,7 +3,6 @@
 // License: GNU General Public License version 3, or any later version
 // See top-level LICENSE file for more information
 
-
 use arrow::array::*;
 
 /// Like [`arrow::array::iterator::ArrayIter`] for arrays with no nulls.
@@ -42,17 +41,19 @@ impl<T: ArrayAccessor> Iterator for NotNullArrayIter<T> {
 
 /// A view over an iterator of values, with an extra iterator telling where to insert
 /// None inbetween values of the former.
-pub struct NullableValuesIterator<Values: Iterator, Nulls: Iterator<Item=bool>> {
+pub struct NullableValuesIterator<Values: Iterator, Nulls: Iterator<Item = bool>> {
     values: Values,
     nulls: Option<Nulls>,
 }
 
-impl<Values: Iterator, Nulls: Iterator<Item=bool>> NullableValuesIterator<Values, Nulls> {
+impl<Values: Iterator, Nulls: Iterator<Item = bool>> NullableValuesIterator<Values, Nulls> {
     pub fn new(values: Values, nulls: Option<Nulls>) -> Self {
         NullableValuesIterator { values, nulls }
     }
 }
-impl<Values: Iterator, Nulls: Iterator<Item=bool>> Iterator for NullableValuesIterator<Values, Nulls> {
+impl<Values: Iterator, Nulls: Iterator<Item = bool>> Iterator
+    for NullableValuesIterator<Values, Nulls>
+{
     type Item = Option<Values::Item>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -62,15 +63,21 @@ impl<Values: Iterator, Nulls: Iterator<Item=bool>> Iterator for NullableValuesIt
                 None => None,
             },
             Some(ref mut nulls) => match nulls.next() {
-                Some(false) => Some(Some(self.values.next().expect("more 'false' bits in nulls() than there are values"))),
+                Some(false) => {
+                    Some(Some(self.values.next().expect(
+                        "more 'false' bits in nulls() than there are values",
+                    )))
+                }
                 Some(true) => Some(None),
                 None => None, // end of iteration
-            }
+            },
         }
     }
 }
 
-impl<Values: ExactSizeIterator, Nulls: ExactSizeIterator<Item=bool>> ExactSizeIterator for NullableValuesIterator<Values, Nulls> {
+impl<Values: ExactSizeIterator, Nulls: ExactSizeIterator<Item = bool>> ExactSizeIterator
+    for NullableValuesIterator<Values, Nulls>
+{
     fn len(&self) -> usize {
         match &self.nulls {
             None => self.values.len(),

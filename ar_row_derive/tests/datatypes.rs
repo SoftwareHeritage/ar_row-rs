@@ -13,8 +13,8 @@ use ar_row::arrow::array::RecordBatchReader;
 use datafusion_orc::projection::ProjectionMask;
 use datafusion_orc::ArrowReaderBuilder;
 
-use ar_row::deserialize::CheckableKind;
-use ar_row_derive::OrcDeserialize;
+use ar_row::deserialize::CheckableDataType;
+use ar_row_derive::ArRowDeserialize;
 
 fn get_reader_builder() -> ArrowReaderBuilder<File> {
     let orc_path = "../test_data/TestOrcFile.test1.orc";
@@ -22,7 +22,7 @@ fn get_reader_builder() -> ArrowReaderBuilder<File> {
     ArrowReaderBuilder::try_new(file).expect("Could not make builder")
 }
 
-#[derive(OrcDeserialize, Default, Debug, PartialEq, Eq)]
+#[derive(ArRowDeserialize, Default, Debug, PartialEq, Eq)]
 struct Test1IncorrectOrder {
     long1: Option<i64>,
     string1: Option<String>,
@@ -44,7 +44,7 @@ fn incorrect_order() {
         Err("Test1IncorrectOrder cannot be decoded:\n\tField #1 must be called string1, not bytes1\n\tField #2 must be called bytes1, not string1".to_string()));
 }
 
-#[derive(OrcDeserialize, Default, Debug, PartialEq, Eq)]
+#[derive(ArRowDeserialize, Default, Debug, PartialEq, Eq)]
 struct Test1IncorrectType {
     long1: Option<i64>,
     bytes1: Option<String>,

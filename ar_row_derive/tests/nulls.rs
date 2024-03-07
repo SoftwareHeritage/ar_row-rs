@@ -13,8 +13,8 @@ use datafusion_orc::projection::ProjectionMask;
 use datafusion_orc::{ArrowReader, ArrowReaderBuilder};
 
 use ar_row::arrow::array::RecordBatchReader;
-use ar_row::deserialize::{CheckableKind, DeserializationError, OrcDeserialize};
-use ar_row_derive::OrcDeserialize;
+use ar_row::deserialize::{CheckableDataType, DeserializationError, ArRowDeserialize};
+use ar_row_derive::ArRowDeserialize;
 
 fn get_reader_builder() -> ArrowReaderBuilder<File> {
     let orc_path = "../test_data//TestOrcFile.testStringAndBinaryStatistics.orc";
@@ -33,7 +33,7 @@ fn get_reader() -> ArrowReader<File> {
 
 #[test]
 fn test_all_options() {
-    #[derive(OrcDeserialize, Default, Debug, PartialEq)]
+    #[derive(ArRowDeserialize, Default, Debug, PartialEq)]
     struct Root {
         bytes1: Option<Box<[u8]>>,
         string1: Option<String>,
@@ -74,7 +74,7 @@ fn test_all_options() {
 
 #[test]
 fn test_string_no_option() {
-    #[derive(OrcDeserialize, Default, Debug, PartialEq)]
+    #[derive(ArRowDeserialize, Default, Debug, PartialEq)]
     struct Root {
         bytes1: Option<Box<[u8]>>,
         string1: String,

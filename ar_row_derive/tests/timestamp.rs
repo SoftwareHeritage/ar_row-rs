@@ -12,7 +12,7 @@ extern crate rust_decimal_macros;
 
 use std::fs::File;
 
-use ar_row::deserialize::{CheckableKind, OrcDeserialize};
+use ar_row::deserialize::{CheckableDataType, ArRowDeserialize};
 use ar_row::reader;
 use ar_row::Timestamp;
 
@@ -30,7 +30,7 @@ fn test_timestamp() {
     let mut rows: Vec<Timestamp> = Vec::new();
 
     for batch in reader {
-        let new_rows = Timestamp::from_vector_batch(&batch.borrow()).unwrap();
+        let new_rows = Timestamp::from_array(&batch.borrow()).unwrap();
         rows.extend(new_rows);
     }
 

@@ -7,12 +7,12 @@ extern crate ar_row;
 extern crate ar_row_derive;
 
 use ar_row::arrow::datatypes::{DataType, Field};
-use ar_row::deserialize::{CheckableKind, OrcStruct};
-use ar_row_derive::OrcDeserialize;
+use ar_row::deserialize::{CheckableDataType, ArrowStruct};
+use ar_row_derive::ArRowDeserialize;
 
 #[test]
 fn test_basic() {
-    #[derive(OrcDeserialize, Clone, Default, Debug, PartialEq)]
+    #[derive(ArRowDeserialize, Clone, Default, Debug, PartialEq)]
     struct Test {
         abc: String,
         def: i64,
@@ -32,7 +32,7 @@ fn test_basic() {
 
 #[test]
 fn test_raw_literal() {
-    #[derive(OrcDeserialize, Clone, Default, Debug, PartialEq)]
+    #[derive(ArRowDeserialize, Clone, Default, Debug, PartialEq)]
     struct Test {
         r#type: String,
     }
@@ -47,20 +47,20 @@ fn test_raw_literal() {
 
 #[test]
 fn test_nested() {
-    #[derive(OrcDeserialize, Clone, Default, Debug, PartialEq)]
+    #[derive(ArRowDeserialize, Clone, Default, Debug, PartialEq)]
     struct Test {
         abc: String,
         def: Inner,
         def2: Vec<Inner>,
     }
 
-    #[derive(OrcDeserialize, Clone, Default, Debug, PartialEq)]
+    #[derive(ArRowDeserialize, Clone, Default, Debug, PartialEq)]
     struct Inner {
         ghi: i64,
         jkl: Vec<i32>,
     }
 
-    let inner_kind = DataType::Struct(
+    let inner_datatype = DataType::Struct(
         vec![
             Field::new("ghi", DataType::Int64, false),
             Field::new("jkl", DataType::new_list(DataType::Int32, false), false),
@@ -70,8 +70,8 @@ fn test_nested() {
     Test::check_datatype(&DataType::Struct(
         vec![
             Field::new("abc", DataType::Utf8, false),
-            Field::new("def", inner_kind.clone(), false),
-            Field::new("def2", DataType::new_list(inner_kind, false), false),
+            Field::new("def", inner_datatype.clone(), false),
+            Field::new("def2", DataType::new_list(inner_datatype, false), false),
         ]
         .into(),
     ))

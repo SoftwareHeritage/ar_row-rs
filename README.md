@@ -1,20 +1,73 @@
 # ar_row-rs
 
-Rust wrapper for the official C++ library for Apache ORC.
+Row-oriented access to Apache Arrow
 
-It uses a submodule pointing to an Apache ORC release, builds its C++ part
-(including vendored protobuf, lz4, zstd, ...), and links against that,
-unless the `ORC_USE_SYSTEM_LIBRARIES` environment variable is set.
-If it is, you need to make sure the dependencies are installed
-(`apt-get install libprotoc-dev liblz4-dev libsnappy-dev libzstd-dev zlib1g-dev`
-on Debian-based distributions).
+Currently, it only allows reading arrays, not building them.
 
-If you have issues when building the crate with linker errors agains libhdfs,
-you may try to define the `ORC_DISABLE_HDFS` environment variable.
+Arrow is a column-oriented data storage format designed to be stored in memory.
+While a columnar is very efficient, it can be cumbersome to work with, so this
+crate provides a work to work on rows by "zipping" columns together into classic
+Rust structures.
+
+This crate was forked from [orcxx](https://crates.io/crates/orcxx), an ORC parsing
+library, by removing the bindings to the underlying ORC C++ library and rewriting
+the high-level API to operate on Arrow instead of ORC-specific structures.
 
 The `ar_row_derive` crate provides a custom `derive` macro.
 
+```rust
+extern crate ar_row;
+extern crate ar_row_derive;
+extern crate datafusion_orc;
+
+use std::fs::File;
+use std::num::NonZeroU64;
+
+use datafusion_orc::projection::ProjectionMask;
+use datafusion_orc::{ArrowReader, ArrowReaderBuilder};
+
+use ar_row::deserialize::{ArRowDeserialize, ArrowStruct};
+use ar_row::row_iterator::RowIterator;
+use ar_row_derive::ArRowDeserialize;
+
+// Define structure
+#[derive(ArRowDeserialize, Clone, Default, Debug, PartialEq, Eq)]
+struct Test1 {
+    long1: Option<i64>,
+}
+
+// Open file
+let orc_path = "../test_data/TestOrcFile.test1.orc";
+let file = File::open(orc_path).expect("could not open .orc");
+let builder = ArrowReaderBuilder::try_new(file).expect("could not make builder");
+let projection = ProjectionMask::named_roots(
+    builder.file_metadata().root_data_type(),
+    &["long1"],
+);
+let reader = builder.with_projection(projection).build();
+let rows: Vec<Option<Test1>> = reader
+    .flat_map(|batch| -> Vec<Option<Test1>> {
+        <Option<Test1>>::from_record_batch(batch.unwrap()).unwrap()
+    })
+    .collect();
+
+assert_eq!(
+    rows,
+    vec![
+        Some(Test1 {
+            long1: Some(9223372036854775807)
+        }),
+        Some(Test1 {
+            long1: Some(9223372036854775807)
+        })
+    ]
+);
+```
+
 ## `RowIterator` API
+
+This API allows reusing the buffer between record batches, but needs `RecordBatch`
+instead of `Result<RecordBatch, _>` as input.
 
 <!-- Keep this in sync with ar_row_derive/src/lib.rs -->
 
@@ -29,12 +82,12 @@ use std::num::NonZeroU64;
 use datafusion_orc::projection::ProjectionMask;
 use datafusion_orc::{ArrowReader, ArrowReaderBuilder};
 
-use ar_row::deserialize::{OrcDeserialize, OrcStruct};
+use ar_row::deserialize::{ArRowDeserialize, ArrowStruct};
 use ar_row::row_iterator::RowIterator;
-use ar_row_derive::OrcDeserialize;
+use ar_row_derive::ArRowDeserialize;
 
 // Define structure
-#[derive(OrcDeserialize, Clone, Default, Debug, PartialEq, Eq)]
+#[derive(ArRowDeserialize, Clone, Default, Debug, PartialEq, Eq)]
 struct Test1 {
     long1: Option<i64>,
 }
@@ -74,9 +127,9 @@ The above two examples also work with nested structures:
 extern crate ar_row;
 extern crate ar_row_derive;
 
-use ar_row_derive::OrcDeserialize;
+use ar_row_derive::ArRowDeserialize;
 
-#[derive(OrcDeserialize, Default, Debug, PartialEq)]
+#[derive(ArRowDeserialize, Default, Debug, PartialEq)]
 struct Test1Option {
     boolean1: Option<bool>,
     byte1: Option<i8>,
@@ -90,7 +143,7 @@ struct Test1Option {
     list: Option<Vec<Option<Test1ItemOption>>>,
 }
 
-#[derive(OrcDeserialize, Default, Debug, PartialEq)]
+#[derive(ArRowDeserialize, Default, Debug, PartialEq)]
 struct Test1ItemOption {
     int1: Option<i32>,
     string1: Option<String>,
