@@ -110,22 +110,17 @@
 //! );
 //! ```
 
-extern crate cxx;
 #[cfg(feature = "rayon")]
 extern crate rayon;
 extern crate thiserror;
 
 pub mod deserialize;
 pub mod errors;
-mod int128;
-pub mod kind;
-mod memorypool;
 #[cfg(feature = "rayon")]
 pub mod parallel_row_iterator;
 pub mod reader;
 pub mod row_iterator;
 pub mod structured_reader;
-pub mod vector;
 
 #[cfg(feature = "json")]
 extern crate chrono;

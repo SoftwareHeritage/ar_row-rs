@@ -3,139 +3,6 @@
 // License: GNU General Public License version 3, or any later version
 // See top-level LICENSE file for more information
 
-//! Low-level column-oriented parser for ORC files.
-
-use cxx::{let_cxx_string, UniquePtr};
-
-use errors::{OrcError, OrcResult};
-use kind;
-use vector;
-
-#[cxx::bridge]
-pub(crate) mod ffi {
-    #[namespace = "ar_row_rs::utils"]
-    unsafe extern "C++" {
-        include!("cpp-utils.hh");
-        include!("orc/OrcFile.hh");
-
-        #[rust_name = "ReaderOptions_new"]
-        fn construct() -> UniquePtr<ReaderOptions>;
-
-        #[rust_name = "RowReaderOptions_new"]
-        fn construct() -> UniquePtr<RowReaderOptions>;
-
-        #[rust_name = "RowReaderOptions_copy"]
-        fn construct_copy(_: &UniquePtr<RowReaderOptions>) -> UniquePtr<RowReaderOptions>;
-
-        #[rust_name = "StringList_new"]
-        fn construct() -> UniquePtr<StringList>;
-    }
-
-    #[namespace = "ar_row_rs"]
-    unsafe extern "C++" {
-        type StringList;
-
-        fn push_back(self: Pin<&mut StringList>, value: &CxxString);
-    }
-
-    // Reimport types from other modules
-    #[namespace = "orc"]
-    unsafe extern "C++" {
-        type ColumnVectorBatch = crate::vector::ffi::ColumnVectorBatch;
-        type Type = crate::kind::ffi::Type;
-    }
-
-    #[namespace = "orc"]
-    unsafe extern "C++" {
-        type InputStream;
-        type ReaderOptions;
-        type ReaderMetrics;
-
-        unsafe fn readLocalFile(
-            path: &CxxString,
-            metrics: *mut ReaderMetrics,
-        ) -> Result<UniquePtr<InputStream>>;
-    }
-
-    #[namespace = "orc"]
-    unsafe extern "C++" {
-        type RowReaderOptions;
-
-        #[rust_name = "include_names"]
-        fn include<'a>(
-            self: Pin<&'a mut RowReaderOptions>,
-            include: &StringList,
-        ) -> Pin<&'a mut RowReaderOptions>;
-    }
-
-    #[namespace = "orc"]
-    unsafe extern "C++" {
-        type Reader;
-
-        fn createReader(
-            inStream: UniquePtr<InputStream>,
-            options: &ReaderOptions,
-        ) -> Result<UniquePtr<Reader>>;
-
-        fn createRowReader(
-            &self,
-            rowReaderOptions: &RowReaderOptions,
-        ) -> Result<UniquePtr<RowReader>>;
-
-        fn getType(&self) -> &Type;
-
-        fn getNumberOfStripes(&self) -> u64;
-        fn getStripe(&self, stripeIndex: u64) -> UniquePtr<StripeInformation>;
-    }
-
-    #[namespace = "orc"]
-    unsafe extern "C++" {
-        type RowReader;
-
-        fn createRowBatch(&self, size: u64) -> UniquePtr<ColumnVectorBatch>;
-
-        fn next(self: Pin<&mut RowReader>, data: Pin<&mut ColumnVectorBatch>) -> bool;
-
-        fn getSelectedType(&self) -> &Type;
-        fn getRowNumber(&self) -> u64;
-        fn seekToRow(self: Pin<&mut RowReader>, rowNumber: u64);
-    }
-
-    #[namespace = "orc"]
-    unsafe extern "C++" {
-        type StripeInformation;
-
-        fn getLength(&self) -> u64;
-        fn getNumberOfRows(&self) -> u64;
-    }
-}
-
-/// Options passed to [Reader::new]
-pub struct ReaderOptions(UniquePtr<ffi::ReaderOptions>);
-
-impl Default for ReaderOptions {
-    fn default() -> ReaderOptions {
-        ReaderOptions(ffi::ReaderOptions_new())
-    }
-}
-
-unsafe impl Send for ReaderOptions {}
-unsafe impl Sync for ReaderOptions {}
-
-/// Input for [Reader::new]
-pub struct InputStream(UniquePtr<ffi::InputStream>);
-
-impl InputStream {
-    pub fn from_local_file(file_name: &str) -> OrcResult<InputStream> {
-        let_cxx_string!(cxx_file_name = file_name);
-        unsafe { ffi::readLocalFile(&cxx_file_name, std::ptr::null_mut()) }
-            .map(InputStream)
-            .map_err(OrcError)
-    }
-}
-
-unsafe impl Send for InputStream {}
-
 /// Reads ORC file meta-data and constructs [`RowReader`]
 pub struct Reader(UniquePtr<ffi::Reader>);
 
@@ -177,9 +44,6 @@ impl Reader {
             .sum::<u64>()
     }
 }
-
-unsafe impl Send for Reader {}
-unsafe impl Sync for Reader {}
 
 /// Options passed to [`Reader::row_reader`]
 pub struct RowReaderOptions(UniquePtr<ffi::RowReaderOptions>);
@@ -254,22 +118,3 @@ impl RowReader {
     }
 }
 
-unsafe impl Send for RowReader {}
-
-/// Metadata about a stripe (a bunch of rows) of an ORC file.
-pub struct StripeInformation(UniquePtr<ffi::StripeInformation>);
-
-impl StripeInformation {
-    /// Returns the stripe's size in bytes
-    pub fn bytes_count(&self) -> u64 {
-        self.0.getLength()
-    }
-
-    /// Returns the number of rows in the stripe
-    pub fn rows_count(&self) -> u64 {
-        self.0.getNumberOfRows()
-    }
-}
-
-unsafe impl Send for StripeInformation {}
-unsafe impl Sync for StripeInformation {}

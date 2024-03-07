@@ -1,6 +1,6 @@
 [package]
 name = "ar_row"
-description = "Rust bindings for the official C++ library for Apache ORC"
+description = "Row-oriented access to Arrow arrays"
 version.workspace = true
 authors.workspace = true
 rust-version.workspace = true
@@ -10,22 +10,7 @@ repository.workspace = true
 keywords.workspace = true
 categories.workspace = true
 
-# ar_row itself is GPL.
-#
-# Apache-2.0 for Apache ORC, BSD for protobuf and snappy, Zlib for zlib.
-# See orc/LICENSE for the text of these licenses
-license = "GPL-3.0-or-later AND Apache-2.0 AND BSD-3-Clause AND Zlib"
-
-build = "build.rs"
-exclude = [
-    "orc/c++/test/",
-    "orc/docker/",
-    "orc/examples/",
-    "orc/java/",
-    "orc/site/",
-    "orc/tools/",
-    "orc/.*",
-]
+license = "GPL-3.0-or-later"
 
 [features]
 # Defines a 'to_json' module which allows converting ORC files to JSON objects
@@ -35,7 +20,6 @@ json = ["dep:json", "dep:chrono"]
 rayon = ["dep:rayon"]
 
 [dependencies]
-cxx = "1.0"
 json = { version = "0.12.4", optional = true }
 chrono = { version = "0.4.26", optional = true }
 # TODO: Make rust_decimal optional

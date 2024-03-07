@@ -1,6 +1,6 @@
 [package]
 name = "ar_row_derive"
-description = "Procedural macros to deserialize structures from Apache ORC using ar_row."
+description = "Procedural macros from row-oriented access to Arrow arrays using ar_row."
 version.workspace = true
 authors.workspace = true
 rust-version.workspace = true
