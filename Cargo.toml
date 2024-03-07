@@ -1,9 +1,9 @@
 [workspace]
 
 members = [
-    "orcxx",
-    "orcxx_derive",
-    "orcxx_readme",
+    "ar_row",
+    "ar_row_derive",
+    "ar_row_readme",
 ]
 
 
@@ -14,14 +14,14 @@ authors = [
 ]
 rust-version = "1.63"
 readme = "README.md"
-homepage = "https://gitlab.softwareheritage.org/swh/devel/orcxx-rs"
-repository = "https://gitlab.softwareheritage.org/swh/devel/orcxx-rs"
+homepage = "https://gitlab.softwareheritage.org/swh/devel/ar_row-rs"
+repository = "https://gitlab.softwareheritage.org/swh/devel/ar_row-rs"
 keywords = ["orc", "apache-orc", "proc-macros"]
 categories = ["encoding", "parser-implementations"]
 
 [workspace.dependencies]
-orcxx = { version = "0.5.0", path = "orcxx/" }
-orcxx_derive = { version = "0.5.0", path = "orcxx_derive/" }
+ar_row = { version = "0.5.0", path = "ar_row/" }
+ar_row_derive = { version = "0.5.0", path = "ar_row_derive/" }
 rayon = "1.7.0"
 
 

@@ -1,4 +1,4 @@
-# orcxx-rs
+# ar_row-rs
 
 Rust wrapper for the official C++ library for Apache ORC.
 
@@ -12,24 +12,24 @@ on Debian-based distributions).
 If you have issues when building the crate with linker errors agains libhdfs,
 you may try to define the `ORC_DISABLE_HDFS` environment variable.
 
-The `orcxx_derive` crate provides a custom `derive` macro.
+The `ar_row_derive` crate provides a custom `derive` macro.
 
-# `orcxx_derive` examples
+# `ar_row_derive` examples
 
 ## `RowIterator` API
 
-<!-- Keep this in sync with orcxx_derive/src/lib.rs -->
+<!-- Keep this in sync with ar_row_derive/src/lib.rs -->
 
 ```rust
-extern crate orcxx;
-extern crate orcxx_derive;
+extern crate ar_row;
+extern crate ar_row_derive;
 
 use std::num::NonZeroU64;
 
-use orcxx::deserialize::{OrcDeserialize, OrcStruct};
-use orcxx::row_iterator::RowIterator;
-use orcxx::reader;
-use orcxx_derive::OrcDeserialize;
+use ar_row::deserialize::{OrcDeserialize, OrcStruct};
+use ar_row::row_iterator::RowIterator;
+use ar_row::reader;
+use ar_row_derive::OrcDeserialize;
 
 // Define structure
 #[derive(OrcDeserialize, Clone, Default, Debug, PartialEq, Eq)]
@@ -38,7 +38,7 @@ struct Test1 {
 }
 
 // Open file
-let orc_path = "../orcxx/orc/examples/TestOrcFile.test1.orc";
+let orc_path = "../ar_row/orc/examples/TestOrcFile.test1.orc";
 let input_stream = reader::InputStream::from_local_file(orc_path).expect("Could not open .orc");
 let reader = reader::Reader::new(input_stream).expect("Could not read .orc");
 
@@ -65,15 +65,15 @@ assert_eq!(
 `RowIterator` clones structures before yielding them. This can be avoided by looping
 and writing directly to a buffer:
 
-<!-- Keep this in sync with orcxx_derive/src/lib.rs -->
+<!-- Keep this in sync with ar_row_derive/src/lib.rs -->
 
 ```rust
-extern crate orcxx;
-extern crate orcxx_derive;
+extern crate ar_row;
+extern crate ar_row_derive;
 
-use orcxx::deserialize::{CheckableKind, OrcDeserialize, OrcStruct};
-use orcxx::reader;
-use orcxx_derive::OrcDeserialize;
+use ar_row::deserialize::{CheckableKind, OrcDeserialize, OrcStruct};
+use ar_row::reader;
+use ar_row_derive::OrcDeserialize;
 
 // Define structure
 #[derive(OrcDeserialize, Default, Debug, PartialEq, Eq)]
@@ -82,7 +82,7 @@ struct Test1 {
 }
 
 // Open file
-let orc_path = "../orcxx/orc/examples/TestOrcFile.test1.orc";
+let orc_path = "../ar_row/orc/examples/TestOrcFile.test1.orc";
 let input_stream = reader::InputStream::from_local_file(orc_path).expect("Could not open .orc");
 let reader = reader::Reader::new(input_stream).expect("Could not read .orc");
 
@@ -121,10 +121,10 @@ assert_eq!(
 The above two examples also work with nested structures:
 
 ```rust
-extern crate orcxx;
-extern crate orcxx_derive;
+extern crate ar_row;
+extern crate ar_row_derive;
 
-use orcxx_derive::OrcDeserialize;
+use ar_row_derive::OrcDeserialize;
 
 #[derive(OrcDeserialize, Default, Debug, PartialEq)]
 struct Test1Option {
@@ -147,7 +147,7 @@ struct Test1ItemOption {
 }
 ```
 
-# `orcxx` examples
+# `ar_row` examples
 
 ## ColumnTree API
 
@@ -160,13 +160,13 @@ This reads batches directly from the C++ library, and leaves the Rust code to dy
 cast base vectors to more specific types; here string vectors.
 
 ```rust
-extern crate orcxx;
-extern crate orcxx_derive;
+extern crate ar_row;
+extern crate ar_row_derive;
 
-use orcxx::reader;
-use orcxx::vector::ColumnVectorBatch;
+use ar_row::reader;
+use ar_row::vector::ColumnVectorBatch;
 
-let input_stream = reader::InputStream::from_local_file("../orcxx/orc/examples/TestOrcFile.test1.orc")
+let input_stream = reader::InputStream::from_local_file("../ar_row/orc/examples/TestOrcFile.test1.orc")
     .expect("Could not open");
 
 let reader = reader::Reader::new(input_stream).expect("Could not read");

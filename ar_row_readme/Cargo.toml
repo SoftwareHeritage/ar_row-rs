@@ -1,0 +1,19 @@
+[package]
+name = "ar_row_readme"
+description = "Pseudo-crate to run examples from the README."
+version.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+readme.workspace = true
+homepage.workspace = true
+repository.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+license = "GPL-3.0-or-later"
+
+[lib]
+
+[dependencies]
+ar_row.workspace = true
+ar_row_derive.workspace = true
