@@ -41,7 +41,7 @@
 //! use datafusion_orc::projection::ProjectionMask;
 //! use datafusion_orc::{ArrowReader, ArrowReaderBuilder};
 //!
-//! use ar_row::deserialize::{ArRowDeserialize, ArrowStruct};
+//! use ar_row::deserialize::{ArRowDeserialize, ArRowStruct};
 //! use ar_row::row_iterator::RowIterator;
 //! use ar_row_derive::ArRowDeserialize;
 //!
@@ -95,7 +95,7 @@
 //! use datafusion_orc::projection::ProjectionMask;
 //! use datafusion_orc::{ArrowReader, ArrowReaderBuilder};
 //!
-//! use ar_row::deserialize::{ArRowDeserialize, ArrowStruct};
+//! use ar_row::deserialize::{ArRowDeserialize, ArRowStruct};
 //! use ar_row::row_iterator::RowIterator;
 //! use ar_row_derive::ArRowDeserialize;
 //!
@@ -175,7 +175,7 @@ use syn::*;
 /// `#[derive(ArRowDeserialize)] struct T { ... }` implements
 /// [`ArRowDeserialize`](../ar_row/deserialize/struct.ArRowDeserialize.html),
 /// [`CheckableDataType`](../ar_row/deserialize/struct.CheckableDataType.html), and
-/// [`ArrowStruct`](../ar_row/deserialize/struct.ArrowStruct.html) for `T`
+/// [`ArRowStruct`](../ar_row/deserialize/struct.ArRowStruct.html) for `T`
 ///
 /// This automatically gives implementations for `Option<T>` and `Vec<T>` as well.
 #[proc_macro_derive(ArRowDeserialize)]
@@ -263,7 +263,7 @@ fn impl_struct(ident: &Ident, field_names: Vec<&Ident>, field_types: Vec<&Type>)
     );
 
     let orc_struct_impl = quote!(
-        impl ::ar_row::deserialize::ArrowStruct for #ident {
+        impl ::ar_row::deserialize::ArRowStruct for #ident {
             fn columns_with_prefix(prefix: &str) -> Vec<String> {
                 let mut columns = Vec::with_capacity(#num_fields);
 
@@ -273,7 +273,7 @@ fn impl_struct(ident: &Ident, field_names: Vec<&Ident>, field_types: Vec<&Type>)
 
                 #({
                     #[inline(always)]
-                    fn add_columns<FieldType: ::ar_row::deserialize::ArrowStruct>(columns: &mut Vec<String>, prefix: &str, _: FieldType) {
+                    fn add_columns<FieldType: ::ar_row::deserialize::ArRowStruct>(columns: &mut Vec<String>, prefix: &str, _: FieldType) {
                         let mut field_name_prefix = prefix.to_string();
                         if prefix.len() != 0 {
                             field_name_prefix.push_str(".");

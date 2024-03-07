@@ -10,7 +10,7 @@ extern crate datafusion_orc;
 use std::fs::File;
 
 use ar_row::arrow::array::RecordBatchReader;
-use ar_row::deserialize::{CheckableDataType, ArRowDeserialize, ArrowStruct};
+use ar_row::deserialize::{CheckableDataType, ArRowDeserialize, ArRowStruct};
 use ar_row::row_iterator::RowIterator;
 use ar_row_derive::ArRowDeserialize;
 use datafusion_orc::projection::ProjectionMask;
@@ -39,7 +39,7 @@ fn get_reader(batch_size: usize) -> ArrowReader<File> {
 
 fn test_with_batch_size<
     const BATCH_SIZE: usize,
-    T: CheckableDataType + ArRowDeserialize + ArrowStruct + Clone + PartialEq + std::fmt::Debug,
+    T: CheckableDataType + ArRowDeserialize + ArRowStruct + Clone + PartialEq + std::fmt::Debug,
 >(
     expected_rows: Vec<T>,
 ) {
@@ -130,7 +130,7 @@ fn test_with_batch_size<
     */
 }
 
-fn test<T: CheckableDataType + ArRowDeserialize + ArrowStruct + Clone + PartialEq + std::fmt::Debug>(
+fn test<T: CheckableDataType + ArRowDeserialize + ArRowStruct + Clone + PartialEq + std::fmt::Debug>(
     expected_rows: Vec<T>,
 ) {
     // Using a const generic so it is more obvious on stack traces which value

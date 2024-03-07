@@ -26,7 +26,7 @@ use std::num::NonZeroU64;
 use datafusion_orc::projection::ProjectionMask;
 use datafusion_orc::{ArrowReader, ArrowReaderBuilder};
 
-use ar_row::deserialize::{ArRowDeserialize, ArrowStruct};
+use ar_row::deserialize::{ArRowDeserialize, ArRowStruct};
 use ar_row::row_iterator::RowIterator;
 use ar_row_derive::ArRowDeserialize;
 
@@ -82,7 +82,7 @@ use std::num::NonZeroU64;
 use datafusion_orc::projection::ProjectionMask;
 use datafusion_orc::{ArrowReader, ArrowReaderBuilder};
 
-use ar_row::deserialize::{ArRowDeserialize, ArrowStruct};
+use ar_row::deserialize::{ArRowDeserialize, ArRowStruct};
 use ar_row::row_iterator::RowIterator;
 use ar_row_derive::ArRowDeserialize;
 

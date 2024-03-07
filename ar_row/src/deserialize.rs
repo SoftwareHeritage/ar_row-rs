@@ -106,7 +106,7 @@ impl<T: CheckableDataType> CheckableDataType for Option<T> {
 /// Nested field names are separated by dots.
 ///
 /// For scalars, this method simply returns the prefix.
-pub trait ArrowStruct {
+pub trait ArRowStruct {
     fn columns() -> Vec<String> {
         Self::columns_with_prefix("")
     }
@@ -114,7 +114,7 @@ pub trait ArrowStruct {
     fn columns_with_prefix(prefix: &str) -> Vec<String>;
 }
 
-impl<T: ArrowStruct> ArrowStruct for Option<T> {
+impl<T: ArRowStruct> ArRowStruct for Option<T> {
     fn columns_with_prefix(prefix: &str) -> Vec<String> {
         T::columns_with_prefix(prefix)
     }
@@ -193,7 +193,7 @@ macro_rules! impl_scalar {
         impl_scalar!($ty, $datatype, $method, $array_ty, |s| Ok(s));
     };
     ($ty:ty, $datatype:expr, $method:ident, $array_ty:ty, $cast:expr) => {
-        impl ArrowStruct for $ty {
+        impl ArRowStruct for $ty {
             fn columns_with_prefix(prefix: &str) -> Vec<String> {
                 vec![prefix.to_string()]
             }
@@ -351,7 +351,7 @@ impl_scalar!(
     })
 );
 
-impl ArrowStruct for Decimal {
+impl ArRowStruct for Decimal {
     fn columns_with_prefix(prefix: &str) -> Vec<String> {
         vec![prefix.to_string()]
     }
@@ -448,7 +448,7 @@ impl ArRowDeserialize for Option<Decimal> {
 }
 */
 
-impl<T: ArrowStruct> ArrowStruct for Vec<T> {
+impl<T: ArRowStruct> ArRowStruct for Vec<T> {
     fn columns_with_prefix(prefix: &str) -> Vec<String> {
         T::columns_with_prefix(prefix)
     }

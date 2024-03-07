@@ -7,7 +7,7 @@ extern crate ar_row;
 extern crate ar_row_derive;
 
 use ar_row::arrow::datatypes::{DataType, Field};
-use ar_row::deserialize::{CheckableDataType, ArrowStruct};
+use ar_row::deserialize::{CheckableDataType, ArRowStruct};
 use ar_row_derive::ArRowDeserialize;
 
 #[test]
