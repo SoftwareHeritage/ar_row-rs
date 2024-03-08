@@ -58,10 +58,7 @@ impl<Values: Iterator, Nulls: Iterator<Item = bool>> Iterator
 
     fn next(&mut self) -> Option<Self::Item> {
         match &mut self.nulls {
-            None => match self.values.next() {
-                Some(item) => Some(Some(item)),
-                None => None,
-            },
+            None => self.values.next().map(Some), // None->None and Some()->Some(Some())
             Some(ref mut nulls) => match nulls.next() {
                 Some(false) => {
                     Some(Some(self.values.next().expect(

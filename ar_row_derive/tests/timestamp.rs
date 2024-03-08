@@ -12,7 +12,7 @@ use std::fs::File;
 use ar_row::arrow::array::RecordBatchReader;
 use datafusion_orc::ArrowReaderBuilder;
 
-use ar_row::deserialize::{CheckableDataType, ArRowDeserialize};
+use ar_row::deserialize::{ArRowDeserialize, CheckableDataType};
 use ar_row::{Date, Timestamp};
 use ar_row_derive::ArRowDeserialize;
 

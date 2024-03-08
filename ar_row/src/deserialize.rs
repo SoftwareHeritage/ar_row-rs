@@ -357,12 +357,16 @@ impl ArRowStruct for Timestamp {
 impl CheckableDataType for Timestamp {
     fn check_datatype(datatype: &DataType) -> Result<(), String> {
         use arrow::datatypes::TimeUnit::*;
-        check_datatype_equals(datatype, &[
-            DataType::Timestamp(Second, None),
-            DataType::Timestamp(Millisecond, None),
-            DataType::Timestamp(Microsecond, None),
-            DataType::Timestamp(Nanosecond, None),
-        ], "Timestamp")
+        check_datatype_equals(
+            datatype,
+            &[
+                DataType::Timestamp(Second, None),
+                DataType::Timestamp(Millisecond, None),
+                DataType::Timestamp(Microsecond, None),
+                DataType::Timestamp(Nanosecond, None),
+            ],
+            "Timestamp",
+        )
     }
 }
 
@@ -377,6 +381,7 @@ macro_rules! impl_timestamp {
                     for (s, d) in it.zip($dst.iter_mut()) {
                         *d = Timestamp {
                             seconds: s / $ratio,
+                            #[allow(clippy::modulo_one)]
                             nanoseconds: (s % $ratio) * (1_000_000_000 / $ratio),
                         }
                     }
@@ -418,6 +423,7 @@ macro_rules! impl_timestamp_option {
                     Some(s) => {
                         *d = Some(Timestamp {
                             seconds: s / $ratio,
+                            #[allow(clippy::modulo_one)]
                             nanoseconds: (s % $ratio) * (1_000_000_000 / $ratio),
                         })
                     }
