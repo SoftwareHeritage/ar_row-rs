@@ -138,7 +138,7 @@ struct Test1Option {
     long1: Option<i64>,
     float1: Option<f32>,
     double1: Option<f64>,
-    bytes1: Option<Vec<u8>>,
+    bytes1: Option<Box<[u8]>>,
     string1: Option<String>,
     list: Option<Vec<Option<Test1ItemOption>>>,
 }
