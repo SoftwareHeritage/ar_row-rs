@@ -1,3 +1,14 @@
+# v0.6.0
+
+*2024-03-08*
+
+This release forks `orcxx` into a new crate, `ar_row` aimed at providing row-oriented
+deserialization of Apache Arrow arrays, by reusing `orcxx`'s deserialization architecture,
+traits, and `derive` macro.
+
+This removes all ORC-specific code, except for tests (which now use `datafusion-orc`
+to read data files into Arrow structures); and all C++ code.
+
 # v0.5.0
 
 *2024-02-08*
