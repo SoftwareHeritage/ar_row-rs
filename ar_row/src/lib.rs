@@ -30,6 +30,7 @@ extern crate thiserror;
 
 mod array_iterators;
 pub mod deserialize;
+pub mod dictionaries;
 pub mod row_iterator;
 
 extern crate rust_decimal;

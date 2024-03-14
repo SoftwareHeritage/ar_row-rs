@@ -19,6 +19,7 @@ use std::num::TryFromIntError;
 use std::slice::IterMut;
 
 use crate::array_iterators::{NotNullArrayIter, NullableValuesIterator};
+use crate::dictionaries::{read_from_dictionary_array, read_options_from_dictionary_array};
 use crate::{Date, Timestamp};
 
 /// Error returned when failing to read a particular batch of data
@@ -47,6 +48,15 @@ pub enum DeserializationError {
     /// a `src` column batch longer than its a `dst` vector.
     #[error("Tried to deserialize {src}-long buffer into {dst}-long buffer")]
     MismatchedLength { src: usize, dst: usize },
+    /// Tried to decode from a
+    /// [dictionary-encoded](https://arrow.apache.org/docs/format/Columnar.html#dictionary-encoded-layout)
+    /// array, but one of the keys has a value larger than the length of the dictionary
+    #[error("Could not read entry {key} of a {data_type} dictionary of length {len}")]
+    DictionaryOverflow {
+        key: usize,
+        len: usize,
+        data_type: DataType,
+    },
 }
 
 fn check_datatype_equals(
@@ -214,25 +224,30 @@ macro_rules! impl_scalar {
             where
                 &'b mut T: DeserializationTarget<'a, Item = Self> + 'b,
             {
-                let src: &$array_ty = src.$method().ok_or_else(|| {
-                    DeserializationError::MismatchedColumnDataType(format!(
+                if let Some(src) = src.$method() {
+                    let src: &$array_ty = src;
+                    match NotNullArrayIter::new(src) {
+                        None => Err(DeserializationError::UnexpectedNull(format!(
+                            "{} column contains nulls",
+                            stringify!($ty)
+                        ))),
+                        Some(it) => {
+                            let it: NotNullArrayIter<&$array_ty> = it;
+                            for (s, d) in it.zip(dst.iter_mut()) {
+                                *d = ($cast)(s)?
+                            }
+
+                            Ok(src.len())
+                        }
+                    }
+                } else if let Some(src) = src.as_any_dictionary_opt() {
+                    read_from_dictionary_array(src, dst)
+                } else {
+                    Err(DeserializationError::MismatchedColumnDataType(format!(
                         "Could not cast {:?} array with {}",
                         src.data_type(),
                         stringify!($method)
-                    ))
-                })?;
-                match NotNullArrayIter::new(src) {
-                    None => Err(DeserializationError::UnexpectedNull(format!(
-                        "{} column contains nulls",
-                        stringify!($ty)
-                    ))),
-                    Some(it) => {
-                        for (s, d) in it.zip(dst.iter_mut()) {
-                            *d = ($cast)(s)?
-                        }
-
-                        Ok(src.len())
-                    }
+                    )))
                 }
             }
         }
@@ -245,21 +260,25 @@ macro_rules! impl_scalar {
             where
                 &'b mut T: DeserializationTarget<'a, Item = Self> + 'b,
             {
-                let src: &$array_ty = src.$method().ok_or_else(|| {
-                    DeserializationError::MismatchedColumnDataType(format!(
+                if let Some(src) = src.$method() {
+                    let src: &$array_ty = src;
+                    for (s, d) in src.iter().zip(dst.iter_mut()) {
+                        match s {
+                            None => *d = None,
+                            Some(s) => *d = Some(($cast)(s)?),
+                        }
+                    }
+
+                    Ok(src.len())
+                } else if let Some(src) = src.as_any_dictionary_opt() {
+                    read_options_from_dictionary_array(src, dst)
+                } else {
+                    Err(DeserializationError::MismatchedColumnDataType(format!(
                         "Could not cast {:?} array with {}",
                         src.data_type(),
                         stringify!($method)
-                    ))
-                })?;
-                for (s, d) in src.iter().zip(dst.iter_mut()) {
-                    match s {
-                        None => *d = None,
-                        Some(s) => *d = Some(($cast)(s)?),
-                    }
+                    )))
                 }
-
-                Ok(src.len())
             }
         }
     };
@@ -406,6 +425,10 @@ impl ArRowDeserialize for Timestamp {
         impl_timestamp!(src, TimestampMicrosecondType, 1_000_000, dst);
         impl_timestamp!(src, TimestampNanosecondType, 1_000_000_000, dst);
 
+        if let Some(src) = src.as_any_dictionary_opt() {
+            return read_from_dictionary_array(src, dst);
+        }
+
         Err(DeserializationError::MismatchedColumnDataType(format!(
             "Could not cast {:?} array with {}",
             src.data_type(),
@@ -446,6 +469,10 @@ impl ArRowDeserialize for Option<Timestamp> {
         impl_timestamp_option!(src, TimestampMillisecondType, 1_000, dst);
         impl_timestamp_option!(src, TimestampMicrosecondType, 1_000_000, dst);
         impl_timestamp_option!(src, TimestampNanosecondType, 1_000_000_000, dst);
+
+        if let Some(src) = src.as_any_dictionary_opt() {
+            return read_options_from_dictionary_array(src, dst);
+        }
 
         Err(DeserializationError::MismatchedColumnDataType(format!(
             "Could not cast {:?} array with {}",
@@ -492,6 +519,7 @@ impl ArRowDeserialize for Decimal {
     where
         &'b mut T: DeserializationTarget<'a, Item = Self> + 'b,
     {
+        // TODO: add support for dictionary encoding?
         match src.try_into_decimals64() {
             Ok(src) => match NotNullArrayIter::new(src) {
                 None => {
@@ -536,6 +564,7 @@ impl ArRowDeserialize for Option<Decimal> {
     where
         &'b mut T: DeserializationTarget<'a, Item = Self> + 'b,
     {
+        // TODO: add support for dictionary encoding?
         match src.try_into_decimals64() {
             Ok(src) => {
                 for (s, d) in src.iter().zip(dst.iter_mut()) {
