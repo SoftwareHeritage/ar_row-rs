@@ -20,7 +20,7 @@ chrono = ["dep:chrono"]
 
 [dependencies]
 ar_row.workspace = true
-chrono = { version = "0.4.26", optional = true }
+chrono = { version = "0.4.37", optional = true }
 proc-macro2 = "1.0"
 quote = "1.0"
 syn = "2.0"
@@ -29,4 +29,4 @@ unsafe_unwrap = "0.1.0"
 [dev-dependencies]
 rust_decimal = "1.30.0"
 rust_decimal_macros = "1.30.0"
-datafusion-orc = { git = "https://github.com/datafusion-contrib/datafusion-orc.git", rev = "8c68f472a24c7ff12401ccdb3704991f0c7d080d" }
+orc-rust = { git = "https://github.com/datafusion-contrib/datafusion-orc.git", rev = "43eee096e1465a4d256422dcaeffdb4fb3e4e17f" } # https://github.com/datafusion-contrib/datafusion-orc/pull/90 so tests pass

@@ -5,12 +5,12 @@
 
 extern crate ar_row;
 extern crate ar_row_derive;
-extern crate datafusion_orc;
+extern crate orc_rust;
 
 use std::fs::File;
 
 use ar_row::arrow::array::RecordBatchReader;
-use datafusion_orc::ArrowReaderBuilder;
+use orc_rust::ArrowReaderBuilder;
 
 use ar_row::deserialize::{ArRowDeserialize, CheckableDataType};
 use ar_row::{Date, Timestamp};
@@ -112,21 +112,21 @@ fn test_timestamp_1900() {
         vec![
             TimeAndDate {
                 time: Timestamp {
-                    seconds: -2198229902,
+                    seconds: -2198229903,
                     nanoseconds: -900000000
                 },
                 date: Date(-25209),
             },
             TimeAndDate {
                 time: Timestamp {
-                    seconds: -2198229902,
+                    seconds: -2198229903,
                     nanoseconds: -899900000
                 },
                 date: Date(-25209),
             },
             TimeAndDate {
                 time: Timestamp {
-                    seconds: -2198229902,
+                    seconds: -2198229903,
                     nanoseconds: -899800000
                 },
                 date: Date(-25209),

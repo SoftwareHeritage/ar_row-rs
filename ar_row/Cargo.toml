@@ -15,7 +15,7 @@ license = "GPL-3.0-or-later"
 [features]
 
 [dependencies]
-arrow = "50.0.0"
+arrow = "51.0.0"
 chrono = { version = "0.4.26", optional = true }
 # TODO: Make rust_decimal optional
 rust_decimal = "1.30.0"

@@ -5,13 +5,13 @@
 
 extern crate ar_row;
 extern crate ar_row_derive;
-extern crate datafusion_orc;
+extern crate orc_rust;
 
 use std::fs::File;
 
 use ar_row::arrow::array::RecordBatchReader;
-use datafusion_orc::projection::ProjectionMask;
-use datafusion_orc::ArrowReaderBuilder;
+use orc_rust::projection::ProjectionMask;
+use orc_rust::ArrowReaderBuilder;
 
 use ar_row::deserialize::CheckableDataType;
 use ar_row_derive::ArRowDeserialize;
