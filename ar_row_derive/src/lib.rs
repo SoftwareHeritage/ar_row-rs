@@ -309,7 +309,7 @@ fn impl_struct(ident: &Ident, field_names: Vec<&Ident>, field_types: Vec<&Type>)
             columns.len(),
             #num_fields,
             "{} has {} fields, but got {} columns.",
-            stringify!(ident), #num_fields, columns.len());
+            stringify!(#ident), #num_fields, columns.len());
         let mut columns = columns.into_iter();
 
         if src.len() > dst.len() {
