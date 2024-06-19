@@ -33,6 +33,7 @@ pub mod deserialize;
 pub mod dictionaries;
 pub mod row_iterator;
 
+#[cfg(feature = "rust_decimal")]
 extern crate rust_decimal;
 
 /// Timezone-less timestamp
@@ -41,6 +42,12 @@ pub struct Timestamp {
     pub seconds: i64,
     pub nanoseconds: i64,
 }
+
+/// Scale-less decimal number
+///
+/// To get a meaningful value, it should be divided by 10^(the schema's scale)
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub struct NaiveDecimal128(pub i128);
 
 /// Days since epoch
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]

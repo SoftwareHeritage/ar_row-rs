@@ -20,7 +20,7 @@ use std::slice::IterMut;
 
 use crate::array_iterators::{NotNullArrayIter, NullableValuesIterator};
 use crate::dictionaries::{read_from_dictionary_array, read_options_from_dictionary_array};
-use crate::{Date, Timestamp};
+use crate::{Date, NaiveDecimal128, Timestamp};
 
 /// Error returned when failing to read a particular batch of data
 #[derive(Debug, Error, PartialEq)]
@@ -216,6 +216,12 @@ macro_rules! impl_scalar {
             }
         }
 
+        impl_scalar_deser!($ty, $datatype, $method, $array_ty, $cast);
+    };
+}
+
+macro_rules! impl_scalar_deser {
+    ($ty:ty, $datatype:expr, $method:ident, $array_ty:ty, $cast:expr) => {
         impl ArRowDeserialize for $ty {
             fn read_from_array<'a, 'b, T>(
                 src: impl Array + AsArray,
@@ -367,6 +373,30 @@ impl_scalar!(
     |s: &[u8]| Ok(s.into())
 );
 
+impl ArRowStruct for NaiveDecimal128 {
+    fn columns_with_prefix(prefix: &str) -> Vec<String> {
+        vec![prefix.to_string()]
+    }
+}
+impl CheckableDataType for NaiveDecimal128 {
+    fn check_datatype(datatype: &DataType) -> Result<(), String> {
+        match datatype {
+            DataType::Decimal128(_, _) => Ok(()),
+            _ => Err(format!(
+                "NaiveDecimal128 must be decoded from Arrow Decimal128(_, _), not Arrow {:?}",
+                datatype
+            )),
+        }
+    }
+}
+impl_scalar_deser!(
+    NaiveDecimal128,
+    [DataType::Decimal128],
+    as_primitive_opt,
+    PrimitiveArray<Decimal128Type>,
+    |v| Ok(NaiveDecimal128(v))
+);
+
 impl ArRowStruct for Timestamp {
     fn columns_with_prefix(prefix: &str) -> Vec<String> {
         vec![prefix.to_string()]
@@ -482,7 +512,7 @@ impl ArRowDeserialize for Option<Timestamp> {
     }
 }
 
-/* TODO decimals
+/* TODO rust_decimal
 impl_scalar!(
     crate::Timestamp,
     [Kind::Timestamp],
