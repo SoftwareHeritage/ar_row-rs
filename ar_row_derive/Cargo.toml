@@ -29,4 +29,4 @@ unsafe_unwrap = "0.1.0"
 [dev-dependencies]
 rust_decimal = "1.30.0"
 rust_decimal_macros = "1.30.0"
-orc-rust = { git = "https://github.com/datafusion-contrib/datafusion-orc.git", rev = "43eee096e1465a4d256422dcaeffdb4fb3e4e17f" } # https://github.com/datafusion-contrib/datafusion-orc/pull/90 so tests pass
+orc-rust = { git = "https://github.com/datafusion-contrib/datafusion-orc.git", rev = "43eee096e1465a4d256422dcaeffdb4fb3e4e17f", default-features = false } # https://github.com/datafusion-contrib/datafusion-orc/pull/90 so tests pass
