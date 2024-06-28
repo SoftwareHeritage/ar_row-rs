@@ -19,4 +19,4 @@ ar_row.workspace = true
 ar_row_derive.workspace = true
 
 [dev-dependencies]
-datafusion-orc = { git = "https://github.com/datafusion-contrib/datafusion-orc.git", rev = "8c68f472a24c7ff12401ccdb3704991f0c7d080d" }
+orc-rust = { git = "https://github.com/datafusion-contrib/datafusion-orc.git", rev = "43eee096e1465a4d256422dcaeffdb4fb3e4e17f" }

@@ -33,13 +33,13 @@
 //! ```
 //! extern crate ar_row;
 //! extern crate ar_row_derive;
-//! extern crate datafusion_orc;
+//! extern crate orc_rust;
 //!
 //! use std::fs::File;
 //! use std::num::NonZeroU64;
 //!
-//! use datafusion_orc::projection::ProjectionMask;
-//! use datafusion_orc::{ArrowReader, ArrowReaderBuilder};
+//! use orc_rust::projection::ProjectionMask;
+//! use orc_rust::{ArrowReader, ArrowReaderBuilder};
 //!
 //! use ar_row::deserialize::{ArRowDeserialize, ArRowStruct};
 //! use ar_row::row_iterator::RowIterator;
@@ -87,13 +87,13 @@
 //! ```
 //! extern crate ar_row;
 //! extern crate ar_row_derive;
-//! extern crate datafusion_orc;
+//! extern crate orc_rust;
 //!
 //! use std::fs::File;
 //! use std::num::NonZeroU64;
 //!
-//! use datafusion_orc::projection::ProjectionMask;
-//! use datafusion_orc::{ArrowReader, ArrowReaderBuilder};
+//! use orc_rust::projection::ProjectionMask;
+//! use orc_rust::{ArrowReader, ArrowReaderBuilder};
 //!
 //! use ar_row::deserialize::{ArRowDeserialize, ArRowStruct};
 //! use ar_row::row_iterator::RowIterator;
