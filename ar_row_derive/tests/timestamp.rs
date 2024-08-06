@@ -10,6 +10,7 @@ extern crate orc_rust;
 use std::fs::File;
 
 use ar_row::arrow::array::RecordBatchReader;
+use ar_row::arrow::datatypes::{DataType, Field, Schema};
 use orc_rust::ArrowReaderBuilder;
 
 use ar_row::deserialize::{ArRowDeserialize, CheckableDataType};
@@ -99,6 +100,50 @@ struct TimeAndDate {
 fn test_timestamp_1900() {
     let reader = reader_builder("../test_data/TestOrcFile.testDate1900.orc").build();
     TimeAndDate::check_schema(&reader.schema()).unwrap();
+
+    let mut rows: Vec<TimeAndDate> = Vec::new();
+
+    for batch in reader {
+        let new_rows = TimeAndDate::from_record_batch(batch.unwrap()).unwrap();
+        rows.extend(new_rows);
+    }
+
+    assert_eq!(
+        rows[0..3].to_vec(),
+        vec![
+            TimeAndDate {
+                time: Timestamp {
+                    seconds: -2198229903,
+                    nanoseconds: -900000000
+                },
+                date: Date(-25209),
+            },
+            TimeAndDate {
+                time: Timestamp {
+                    seconds: -2198229903,
+                    nanoseconds: -899900000
+                },
+                date: Date(-25209),
+            },
+            TimeAndDate {
+                time: Timestamp {
+                    seconds: -2198229903,
+                    nanoseconds: -899800000
+                },
+                date: Date(-25209),
+            },
+        ]
+    )
+}
+
+#[test]
+fn test_timestamp_1900_decimal() {
+    let reader = reader_builder("../test_data/TestOrcFile.testDate1900.orc").build();
+    TimeAndDate::check_schema(&Schema::new(vec![
+        Field::new("time", DataType::Decimal128(38, 9), false),
+        Field::new("date", DataType::Date32, false),
+    ]))
+    .unwrap();
 
     let mut rows: Vec<TimeAndDate> = Vec::new();
 

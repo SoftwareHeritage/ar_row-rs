@@ -413,6 +413,7 @@ impl CheckableDataType for Timestamp {
                 DataType::Timestamp(Millisecond, None),
                 DataType::Timestamp(Microsecond, None),
                 DataType::Timestamp(Nanosecond, None),
+                DataType::Decimal128(38, 9),
             ],
             "Timestamp",
         )
