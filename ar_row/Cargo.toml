@@ -15,7 +15,7 @@ license = "GPL-3.0-or-later"
 [features]
 
 [dependencies]
-arrow = "51.0.0"
+arrow = "52.0.0"
 chrono = { version = "0.4.26", optional = true }
 #rust_decimal = { version = "1.30.0", optional = true }
 thiserror = "1.0.48"
