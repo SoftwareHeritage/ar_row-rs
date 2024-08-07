@@ -138,12 +138,14 @@ fn test_timestamp_1900() {
 
 #[test]
 fn test_timestamp_1900_decimal() {
-    let reader = reader_builder("../test_data/TestOrcFile.testDate1900.orc").build();
-    TimeAndDate::check_schema(&Schema::new(vec![
+    let schema = Schema::new(vec![
         Field::new("time", DataType::Decimal128(38, 9), false),
         Field::new("date", DataType::Date32, false),
-    ]))
-    .unwrap();
+    ]);
+    let reader = reader_builder("../test_data/TestOrcFile.testDate1900.orc")
+        .with_schema(schema.clone().into())
+        .build();
+    TimeAndDate::check_schema(&schema).unwrap();
 
     let mut rows: Vec<TimeAndDate> = Vec::new();
 

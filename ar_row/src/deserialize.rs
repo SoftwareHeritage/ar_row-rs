@@ -7,6 +7,7 @@
 
 #![allow(clippy::redundant_closure_call)]
 
+use std::convert::{TryFrom, TryInto};
 use std::sync::Arc;
 
 use arrow::array::*;
@@ -21,6 +22,9 @@ use std::slice::IterMut;
 use crate::array_iterators::{NotNullArrayIter, NullableValuesIterator};
 use crate::dictionaries::{read_from_dictionary_array, read_options_from_dictionary_array};
 use crate::{Date, NaiveDecimal128, Timestamp};
+
+const DECIMAL_PRECISION: u8 = 38;
+const DECIMAL_SCALE: i8 = 9;
 
 /// Error returned when failing to read a particular batch of data
 #[derive(Debug, Error, PartialEq)]
@@ -57,6 +61,9 @@ pub enum DeserializationError {
         len: usize,
         data_type: DataType,
     },
+    /// Could not convert [`Decimal128Type`] to [`Timestamp`]
+    #[error("Could not represent number of seconds ({seconds}) as a 64-bits signed integer")]
+    TimestampOverflow { seconds: i128 },
 }
 
 fn check_datatype_equals(
@@ -413,7 +420,7 @@ impl CheckableDataType for Timestamp {
                 DataType::Timestamp(Millisecond, None),
                 DataType::Timestamp(Microsecond, None),
                 DataType::Timestamp(Nanosecond, None),
-                DataType::Decimal128(38, 9),
+                DataType::Decimal128(DECIMAL_PRECISION, DECIMAL_SCALE),
             ],
             "Timestamp",
         )
@@ -456,14 +463,28 @@ impl ArRowDeserialize for Timestamp {
         impl_timestamp!(src, TimestampMicrosecondType, 1_000_000, dst);
         impl_timestamp!(src, TimestampNanosecondType, 1_000_000_000, dst);
 
+        if let Some(src) = src.as_primitive_opt::<Decimal128Type>() {
+            return match NotNullArrayIter::new(src) {
+                None => Err(DeserializationError::UnexpectedNull(format!(
+                    "Timestamp column contains nulls",
+                ))),
+                Some(it) => {
+                    for (s, d) in it.zip(dst.iter_mut()) {
+                        *d = timestamp_from_decimal128(s)?;
+                    }
+
+                    Ok(src.len())
+                }
+            };
+        }
+
         if let Some(src) = src.as_any_dictionary_opt() {
             return read_from_dictionary_array(src, dst);
         }
 
         Err(DeserializationError::MismatchedColumnDataType(format!(
-            "Could not cast {:?} array with {}",
+            "Could not cast {:?} array with as_primitive_opt::<Timestamp*Type>",
             src.data_type(),
-            stringify!($method)
         )))
     }
 }
@@ -501,6 +522,16 @@ impl ArRowDeserialize for Option<Timestamp> {
         impl_timestamp_option!(src, TimestampMicrosecondType, 1_000_000, dst);
         impl_timestamp_option!(src, TimestampNanosecondType, 1_000_000_000, dst);
 
+        if let Some(src) = src.as_primitive_opt::<Decimal128Type>() {
+            for (s, d) in src.iter().zip(dst.iter_mut()) {
+                match s {
+                    None => *d = None,
+                    Some(s) => *d = Some(timestamp_from_decimal128(s)?),
+                }
+            }
+            return Ok(src.len());
+        }
+
         if let Some(src) = src.as_any_dictionary_opt() {
             return read_options_from_dictionary_array(src, dst);
         }
@@ -511,6 +542,17 @@ impl ArRowDeserialize for Option<Timestamp> {
             stringify!($method)
         )))
     }
+}
+
+fn timestamp_from_decimal128(s: i128) -> Result<Timestamp, DeserializationError> {
+    let dividend = 10u64.pow(DECIMAL_SCALE.try_into().unwrap());
+    let seconds = s / i128::from(dividend);
+    let nanoseconds = s % i128::from(dividend);
+    Ok(Timestamp {
+        seconds: i64::try_from(seconds)
+            .map_err(|_| DeserializationError::TimestampOverflow { seconds })?,
+        nanoseconds: nanoseconds.try_into().unwrap(), // can't overflow, dividend fits in u64
+    })
 }
 
 /* TODO rust_decimal
