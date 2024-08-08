@@ -217,43 +217,43 @@ fn impl_struct(ident: &Ident, field_names: Vec<&Ident>, field_types: Vec<&Type>)
 
     let check_datatype_impl = quote!(
         impl ::ar_row::deserialize::CheckableDataType for #ident {
-            fn check_datatype(datatype: &::ar_row::arrow::datatypes::DataType) -> Result<(), String> {
+            fn check_datatype(datatype: &::ar_row::arrow::datatypes::DataType) -> ::std::result::Result<(), ::std::string::String> {
                 use ::ar_row::arrow::datatypes::DataType;
                 match datatype {
                     DataType::Struct(fields) => {
                         let mut fields = fields.iter().enumerate();
-                        let mut errors = Vec::new();
+                        let mut errors = ::std::vec::Vec::new();
                         #(
                             match fields.next() {
-                                Some((i, field)) => {
+                                ::std::option::Option::Some((i, field)) => {
                                     if field.name() != stringify!(#unescaped_field_names) {
                                         errors.push(format!(
                                                 "Field #{} must be called {}, not {}",
                                                 i, stringify!(#unescaped_field_names), field.name()))
                                     }
-                                    else if let Err(s) = <#field_types>::check_datatype(field.data_type()) {
+                                    else if let ::std::result::Result::Err(s) = <#field_types>::check_datatype(field.data_type()) {
                                         errors.push(format!(
                                             "Field {} cannot be decoded: {}",
                                             stringify!(#unescaped_field_names), s));
                                     }
                                 },
-                                None => errors.push(format!(
+                                ::std::option::Option::None => errors.push(format!(
                                     "Field {} is missing",
                                     stringify!(#unescaped_field_names)))
                             }
                         )*
 
                         if errors.is_empty() {
-                            Ok(())
+                            ::std::result::Result::Ok(())
                         }
                         else {
-                            Err(format!(
+                            ::std::result::Result::Err(format!(
                                 "{} cannot be decoded:\n\t{}",
                                 stringify!(#ident),
                                 errors.join("\n").replace("\n", "\n\t")))
                         }
                     }
-                    _ => Err(format!(
+                    _ => ::std::result::Result::Err(format!(
                         "{} must be decoded from DataType::Struct, not {:?}",
                         stringify!(#ident),
                         datatype))
@@ -264,16 +264,16 @@ fn impl_struct(ident: &Ident, field_names: Vec<&Ident>, field_types: Vec<&Type>)
 
     let orc_struct_impl = quote!(
         impl ::ar_row::deserialize::ArRowStruct for #ident {
-            fn columns_with_prefix(prefix: &str) -> Vec<String> {
-                let mut columns = Vec::with_capacity(#num_fields);
+            fn columns_with_prefix(prefix: &str) -> ::std::vec::Vec<::std::string::String> {
+                let mut columns = ::std::vec::Vec::with_capacity(#num_fields);
 
                 // Hack to get types. Hopefully the compiler notices we don't
                 // actually use it at runtime.
-                let instance: #ident = Default::default();
+                let instance: #ident = ::std::default::Default::default();
 
                 #({
                     #[inline(always)]
-                    fn add_columns<FieldType: ::ar_row::deserialize::ArRowStruct>(columns: &mut Vec<String>, prefix: &str, _: FieldType) {
+                    fn add_columns<FieldType: ::ar_row::deserialize::ArRowStruct>(columns: &mut ::std::vec::Vec<::std::string::String>, prefix: &str, _: FieldType) {
                         let mut field_name_prefix = prefix.to_string();
                         if prefix.len() != 0 {
                             field_name_prefix.push_str(".");
@@ -314,7 +314,7 @@ fn impl_struct(ident: &Ident, field_names: Vec<&Ident>, field_types: Vec<&Type>)
 
         if src.len() > dst.len() {
             println!("{} src = {} dst = {}", stringify!(#ident), src.len(), dst.len());
-            return Err(::ar_row::deserialize::DeserializationError::MismatchedLength { src: src.len(), dst: dst.len() });
+            return ::std::result::Result::Err(::ar_row::deserialize::DeserializationError::MismatchedLength { src: src.len(), dst: dst.len() });
         }
     );
 
@@ -322,21 +322,21 @@ fn impl_struct(ident: &Ident, field_names: Vec<&Ident>, field_types: Vec<&Type>)
         impl ::ar_row::deserialize::ArRowDeserialize for #ident {
             fn read_from_array<'a, 'b, T> (
                 src: impl ::ar_row::arrow::array::Array + ::ar_row::arrow::array::AsArray, mut dst: &'b mut T
-            ) -> Result<usize, ::ar_row::deserialize::DeserializationError>
+            ) -> ::std::result::Result<usize, ::ar_row::deserialize::DeserializationError>
             where
                 &'b mut T: ::ar_row::deserialize::DeserializationTarget<'a, Item=#ident> + 'b {
                 #prelude
 
                 match src.nulls() {
-                    None => {
+                    ::std::option::Option::None => {
                         for struct_ in dst.iter_mut() {
-                            *struct_ = Default::default()
+                            *struct_ = ::std::default::Default::default()
                         }
                     },
-                    Some(nulls) => {
+                    ::std::option::Option::Some(nulls) => {
                         for (struct_, b) in dst.iter_mut().zip(nulls) {
                             if b {
-                                *struct_ = Default::default()
+                                *struct_ = ::std::default::Default::default()
                             }
                         }
                     }
@@ -351,7 +351,7 @@ fn impl_struct(ident: &Ident, field_names: Vec<&Ident>, field_types: Vec<&Type>)
                     )?;
                 )*
 
-                Ok(src.len())
+                ::std::result::Result::Ok(src.len())
             }
         }
     );
@@ -360,21 +360,21 @@ fn impl_struct(ident: &Ident, field_names: Vec<&Ident>, field_types: Vec<&Type>)
         impl ::ar_row::deserialize::ArRowDeserializeOption for #ident {
             fn read_options_from_array<'a, 'b, T> (
                 src: impl ::ar_row::arrow::array::Array + ::ar_row::arrow::array::AsArray, mut dst: &'b mut T
-            ) -> Result<usize, ::ar_row::deserialize::DeserializationError>
+            ) -> ::std::result::Result<usize, ::ar_row::deserialize::DeserializationError>
             where
-                &'b mut T: ::ar_row::deserialize::DeserializationTarget<'a, Item=Option<#ident>> + 'b {
+                &'b mut T: ::ar_row::deserialize::DeserializationTarget<'a, Item=::std::option::Option<#ident>> + 'b {
                 #prelude
 
                 match src.nulls() {
-                    None => {
+                    ::std::option::Option::None => {
                         for struct_ in dst.iter_mut() {
-                            *struct_ = Some(Default::default())
+                            *struct_ = ::std::option::Option::Some(::std::default::Default::default())
                         }
                     },
-                    Some(nulls) => {
+                    ::std::option::Option::Some(nulls) => {
                         for (struct_, b) in dst.iter_mut().zip(nulls) {
                             if !b {
-                                *struct_ = Some(Default::default())
+                                *struct_ = ::std::option::Option::Some(::std::default::Default::default())
                             }
                         }
                     }
@@ -389,7 +389,7 @@ fn impl_struct(ident: &Ident, field_names: Vec<&Ident>, field_types: Vec<&Type>)
                     )?;
                 )*
 
-                Ok(src.len())
+                ::std::result::Result::Ok(src.len())
             }
         }
     );
