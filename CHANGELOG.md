@@ -1,3 +1,22 @@
+# v1.0.0
+
+*2024-08-08*
+
+New features:
+
+* Add support for naive Decimal128 decoding
+* Add support for decoding timestamps from Decimal, so [the full range of ORC timestamps](https://github.com/datafusion-contrib/datafusion-orc/pull/96) is supported
+* Add support for decoding dictionary-encoded with primitive values
+
+Changes:
+
+* Update from arrow v50 to v52
+
+Fixes:
+
+* ar_row_derive: Use fully-qualified names to avoid shadowing
+* Fix error message on missing columns
+
 # v0.6.0
 
 *2024-03-08*
