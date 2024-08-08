@@ -25,6 +25,7 @@ use crate::{Date, NaiveDecimal128, Timestamp};
 
 const DECIMAL_PRECISION: u8 = 38;
 const DECIMAL_SCALE: i8 = 9;
+const TIMESTAMP_DECIMAL128_TYPE: DataType = DataType::Decimal128(DECIMAL_PRECISION, DECIMAL_SCALE);
 
 /// Error returned when failing to read a particular batch of data
 #[derive(Debug, Error, PartialEq)]
@@ -464,6 +465,13 @@ impl ArRowDeserialize for Timestamp {
         impl_timestamp!(src, TimestampNanosecondType, 1_000_000_000, dst);
 
         if let Some(src) = src.as_primitive_opt::<Decimal128Type>() {
+            if *src.data_type() != TIMESTAMP_DECIMAL128_TYPE {
+                return Err(DeserializationError::MismatchedColumnDataType(format!(
+                    "Timestamp can only be decoded from {:?}, not {:?}",
+                    TIMESTAMP_DECIMAL128_TYPE,
+                    *src.data_type()
+                )));
+            }
             return match NotNullArrayIter::new(src) {
                 None => Err(DeserializationError::UnexpectedNull(format!(
                     "Timestamp column contains nulls",
@@ -523,6 +531,13 @@ impl ArRowDeserialize for Option<Timestamp> {
         impl_timestamp_option!(src, TimestampNanosecondType, 1_000_000_000, dst);
 
         if let Some(src) = src.as_primitive_opt::<Decimal128Type>() {
+            if *src.data_type() != TIMESTAMP_DECIMAL128_TYPE {
+                return Err(DeserializationError::MismatchedColumnDataType(format!(
+                    "Timestamp can only be decoded from {:?}, not {:?}",
+                    TIMESTAMP_DECIMAL128_TYPE,
+                    *src.data_type()
+                )));
+            }
             for (s, d) in src.iter().zip(dst.iter_mut()) {
                 match s {
                     None => *d = None,
