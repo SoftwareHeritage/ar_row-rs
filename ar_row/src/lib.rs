@@ -33,8 +33,8 @@ pub mod deserialize;
 pub mod dictionaries;
 pub mod row_iterator;
 
-#[cfg(feature = "rust_decimal")]
-extern crate rust_decimal;
+//#[cfg(feature = "rust_decimal")]
+//extern crate rust_decimal;
 
 /// Timezone-less timestamp
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
