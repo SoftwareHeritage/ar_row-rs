@@ -8,7 +8,7 @@ members = [
 
 
 [workspace.package]
-version = "1.0.0"
+version = "1.1.0"
 authors = [
     "Software Heritage developers <swh-devel@inria.fr>"
 ]
@@ -20,8 +20,8 @@ keywords = ["arrow", "proc-macros"]
 categories = ["encoding", "parser-implementations"]
 
 [workspace.dependencies]
-ar_row = { version = "1.0.0", path = "ar_row/" }
-ar_row_derive = { version = "1.0.0", path = "ar_row_derive/" }
+ar_row = { version = "1.1.0", path = "ar_row/" }
+ar_row_derive = { version = "1.1.0", path = "ar_row_derive/" }
 
 
 [profile.release]
