@@ -231,7 +231,7 @@ fn impl_struct(ident: &Ident, field_names: Vec<&Ident>, field_types: Vec<&Type>)
                                                 "Field #{} must be called {}, not {}",
                                                 i, stringify!(#unescaped_field_names), field.name()))
                                     }
-                                    else if let ::std::result::Result::Err(s) = <#field_types>::check_datatype(field.data_type()) {
+                                    else if let ::std::result::Result::Err(s) = <#field_types as ::ar_row::deserialize::CheckableDataType>::check_datatype(field.data_type()) {
                                         errors.push(format!(
                                             "Field {} cannot be decoded: {}",
                                             stringify!(#unescaped_field_names), s));
