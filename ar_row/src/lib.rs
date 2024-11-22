@@ -52,3 +52,39 @@ pub struct NaiveDecimal128(pub i128);
 /// Days since epoch
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
 pub struct Date(pub i64);
+
+/// Array wrapper that implements [`Default`]
+#[repr(transparent)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct FixedSizeBinary<const N: usize>(pub [u8; N]);
+
+impl<const N: usize> Default for FixedSizeBinary<N> {
+    fn default() -> Self {
+        FixedSizeBinary([0; N])
+    }
+}
+
+impl<const N: usize> From<[u8; N]> for FixedSizeBinary<N> {
+    fn from(value: [u8; N]) -> Self {
+        FixedSizeBinary(value)
+    }
+}
+
+impl<const N: usize> From<FixedSizeBinary<N>> for [u8; N] {
+    fn from(value: FixedSizeBinary<N>) -> Self {
+        value.0
+    }
+}
+
+impl<const N: usize> std::ops::Deref for FixedSizeBinary<N> {
+    type Target = [u8; N];
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<const N: usize> std::ops::DerefMut for FixedSizeBinary<N> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}

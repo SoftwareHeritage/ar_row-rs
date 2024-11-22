@@ -21,7 +21,7 @@ use std::slice::IterMut;
 
 use crate::array_iterators::{NotNullArrayIter, NullableValuesIterator};
 use crate::dictionaries::{read_from_dictionary_array, read_options_from_dictionary_array};
-use crate::{Date, NaiveDecimal128, Timestamp};
+use crate::{Date, FixedSizeBinary, NaiveDecimal128, Timestamp};
 
 const DECIMAL_PRECISION: u8 = 38;
 const DECIMAL_SCALE: i8 = 9;
@@ -53,6 +53,9 @@ pub enum DeserializationError {
     /// a `src` column batch longer than its a `dst` vector.
     #[error("Tried to deserialize {src}-long buffer into {dst}-long buffer")]
     MismatchedLength { src: usize, dst: usize },
+    /// Tried to deserialized a `FixedSizeBinary` into arrays of the wrong size
+    #[error("Tried to deserialize FixedSizeBinary({src}) buffer into arrays of length {dst}")]
+    MismatchedBinarySize { src: usize, dst: usize },
     /// Tried to decode from a
     /// [dictionary-encoded](https://arrow.apache.org/docs/format/Columnar.html#dictionary-encoded-layout)
     /// array, but one of the keys has a value larger than the length of the dictionary
@@ -381,6 +384,107 @@ impl_scalar!(
     |s: &[u8]| Ok(s.into())
 );
 
+impl<const N: usize> ArRowStruct for FixedSizeBinary<N> {
+    fn columns_with_prefix(prefix: &str) -> Vec<String> {
+        vec![prefix.to_string()]
+    }
+}
+
+impl<const N: usize> CheckableDataType for FixedSizeBinary<N> {
+    fn check_datatype(datatype: &DataType) -> Result<(), String> {
+        match datatype {
+            DataType::FixedSizeBinary(size) => {
+                match i32::try_from(N) {
+                    Ok(expected_size) if expected_size == *size => Ok(()),
+                    _ => Err(format!(
+                    "[u8; {}] must be decoded from Arrow FixedSizeBinary({}), not Arrow FixedSizeBinary({})",
+                    N, N, size,
+                )),
+                }
+            },
+            _ => Err(format!(
+                "[u8; _] must be decoded from Arrow FixedSizeBinary, not Arrow {:?}",
+                datatype
+            )),
+        }
+    }
+}
+
+impl<const N: usize> ArRowDeserialize for FixedSizeBinary<N> {
+    fn read_from_array<'a, 'b, T>(
+        src: impl Array + AsArray,
+        mut dst: &'b mut T,
+    ) -> Result<usize, DeserializationError>
+    where
+        &'b mut T: DeserializationTarget<'a, Item = Self> + 'b,
+    {
+        if let Some(src) = src.as_fixed_size_binary_opt() {
+            let src: &FixedSizeBinaryArray = src;
+            match NotNullArrayIter::new(src) {
+                None => Err(DeserializationError::UnexpectedNull(
+                    "[u8; _] column contains nulls".to_string(),
+                )),
+                Some(it) => {
+                    let it: NotNullArrayIter<&FixedSizeBinaryArray> = it;
+                    for (s, d) in it.zip(dst.iter_mut()) {
+                        *d = FixedSizeBinary(s.try_into().map_err(|_| {
+                            DeserializationError::MismatchedBinarySize {
+                                src: s.len(),
+                                dst: N,
+                            }
+                        })?)
+                    }
+
+                    Ok(src.len())
+                }
+            }
+        } else if let Some(src) = src.as_any_dictionary_opt() {
+            read_from_dictionary_array(src, dst)
+        } else {
+            Err(DeserializationError::MismatchedColumnDataType(format!(
+                "Could not cast {:?} array with as_fixed_size_binary_opt",
+                src.data_type(),
+            )))
+        }
+    }
+}
+
+impl<const N: usize> ArRowDeserialize for Option<FixedSizeBinary<N>> {
+    fn read_from_array<'a, 'b, T>(
+        src: impl Array + AsArray,
+        mut dst: &'b mut T,
+    ) -> Result<usize, DeserializationError>
+    where
+        &'b mut T: DeserializationTarget<'a, Item = Self> + 'b,
+    {
+        if let Some(src) = src.as_fixed_size_binary_opt() {
+            let src: &FixedSizeBinaryArray = src;
+            for (s, d) in src.iter().zip(dst.iter_mut()) {
+                match s {
+                    None => *d = None,
+                    Some(s) => {
+                        *d = Some(FixedSizeBinary(s.try_into().map_err(|_| {
+                            DeserializationError::MismatchedBinarySize {
+                                src: s.len(),
+                                dst: N,
+                            }
+                        })?))
+                    }
+                }
+            }
+
+            Ok(src.len())
+        } else if let Some(src) = src.as_any_dictionary_opt() {
+            read_options_from_dictionary_array(src, dst)
+        } else {
+            Err(DeserializationError::MismatchedColumnDataType(format!(
+                "Could not cast {:?} array with as_fixed_size_binary_opt",
+                src.data_type(),
+            )))
+        }
+    }
+}
+
 impl ArRowStruct for NaiveDecimal128 {
     fn columns_with_prefix(prefix: &str) -> Vec<String> {
         vec![prefix.to_string()]
@@ -473,9 +577,9 @@ impl ArRowDeserialize for Timestamp {
                 )));
             }
             return match NotNullArrayIter::new(src) {
-                None => Err(DeserializationError::UnexpectedNull(format!(
-                    "Timestamp column contains nulls",
-                ))),
+                None => Err(DeserializationError::UnexpectedNull(
+                    "Timestamp column contains nulls".to_string(),
+                )),
                 Some(it) => {
                     for (s, d) in it.zip(dst.iter_mut()) {
                         *d = timestamp_from_decimal128(s)?;
@@ -706,7 +810,7 @@ macro_rules! init_list_read {
 
         // Deserialize the inner elements recursively into this temporary buffer.
         // TODO: write them directly to the final location to avoid a copy
-        let mut elements = Vec::new();
+        let mut elements = Vec::with_capacity(num_elements);
         elements.resize_with(num_elements, Default::default);
         ArRowDeserialize::read_from_array::<Vec<I>>(values.clone(), &mut elements)?;
 
@@ -939,19 +1043,6 @@ where
 
     fn iter_mut(&mut self) -> Map<T::IterMut<'_>, F> {
         self.iter.iter_mut().map(self.f)
-    }
-}
-
-/// Given a [`StructArray`], returns a vector of structures initialized with
-/// [`Default`] for every not-null value in the [`StructArray`], and `None` for
-/// null values.
-pub fn default_option_vec<T: Default>(array: &StructArray) -> Vec<Option<T>> {
-    match array.nulls() {
-        None => (0..array.len()).map(|_| Some(Default::default())).collect(),
-        Some(nulls) => nulls
-            .iter()
-            .map(|b| if b { None } else { Some(Default::default()) })
-            .collect(),
     }
 }
 
