@@ -18,7 +18,7 @@ where
     Item: 'a + Clone + ArRowDeserialize,
     &'b mut T: DeserializationTarget<'a, Item = Item> + 'b,
 {
-    if let Some(_) = src.nulls() {
+    if src.nulls().is_some() {
         return Err(DeserializationError::UnexpectedNull(format!(
             "{} column contains nulls",
             std::any::type_name::<Item>(),
