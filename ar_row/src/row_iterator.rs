@@ -50,14 +50,18 @@ impl<R: Iterator<Item = RecordBatch>, T: ArRowDeserialize + Clone> RowIterator<R
             index: 0,
             decoded_items: 0, // Will be filled on the first run of next()
         };
-        row_iterator.read_batch()?; // Get an early error if the type is incorrect
+        row_iterator.read_batch(/* check_schema */ true)?; // Get an early error if the type is incorrect
         Ok(row_iterator)
     }
 
-    fn read_batch(&mut self) -> Result<bool, DeserializationError> {
+    fn read_batch(&mut self, check_schema: bool) -> Result<bool, DeserializationError> {
         self.index = 0;
         match self.reader.next() {
             Some(record_batch) => {
+                if check_schema {
+                    T::check_schema(&*record_batch.schema())
+                        .map_err(DeserializationError::MismatchedColumnDataType)?;
+                }
                 self.batch.resize(record_batch.num_rows(), T::default());
                 self.decoded_items = T::read_from_record_batch(record_batch, &mut self.batch)?;
                 Ok(false)
@@ -77,7 +81,7 @@ impl<R: Iterator<Item = RecordBatch>, T: ArRowDeserialize + Clone> Iterator for 
     fn next(&mut self) -> Option<T> {
         // Exhausted the current batch, read the next one.
         if self.index == self.decoded_items {
-            let ended = self.read_batch().expect("ArRowDeserialize::read_from_array() call from RowIterator::next() returns a deserialization error");
+            let ended = self.read_batch(/* check_schema */ false).expect("ArRowDeserialize::read_from_array() call from RowIterator::next() returns a deserialization error");
             if ended {
                 return None;
             }
