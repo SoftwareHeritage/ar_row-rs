@@ -16,10 +16,6 @@ the high-level API to operate on Arrow instead of ORC-specific structures.
 The `ar_row_derive` crate provides a custom `derive` macro.
 
 ```rust
-extern crate ar_row;
-extern crate ar_row_derive;
-extern crate orc_rust;
-
 use std::fs::File;
 use std::num::NonZeroU64;
 
@@ -72,10 +68,6 @@ instead of `Result<RecordBatch, _>` as input.
 <!-- Keep this in sync with ar_row_derive/src/lib.rs -->
 
 ```rust
-extern crate ar_row;
-extern crate ar_row_derive;
-extern crate orc_rust;
-
 use std::fs::File;
 use std::num::NonZeroU64;
 
@@ -124,9 +116,6 @@ assert_eq!(
 The above two examples also work with nested structures:
 
 ```rust
-extern crate ar_row;
-extern crate ar_row_derive;
-
 use ar_row_derive::ArRowDeserialize;
 
 #[derive(ArRowDeserialize, Default, Debug, PartialEq)]

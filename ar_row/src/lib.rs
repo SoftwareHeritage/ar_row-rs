@@ -25,16 +25,12 @@
 //!
 //! See the [`ar_row_derive` documentation](https://docs.rs/ar_row_derive/)
 
-pub extern crate arrow;
-extern crate thiserror;
+pub use arrow;
 
 mod array_iterators;
 pub mod deserialize;
 pub mod dictionaries;
 pub mod row_iterator;
-
-//#[cfg(feature = "rust_decimal")]
-//extern crate rust_decimal;
 
 /// Timezone-less timestamp
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]

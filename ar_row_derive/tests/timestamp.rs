@@ -3,10 +3,6 @@
 // License: GNU General Public License version 3, or any later version
 // See top-level LICENSE file for more information
 
-extern crate ar_row;
-extern crate ar_row_derive;
-extern crate orc_rust;
-
 use std::fs::File;
 
 use ar_row::arrow::array::RecordBatchReader;

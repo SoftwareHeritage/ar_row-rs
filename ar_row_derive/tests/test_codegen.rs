@@ -3,9 +3,6 @@
 // License: GNU General Public License version 3, or any later version
 // See top-level LICENSE file for more information
 
-extern crate ar_row;
-extern crate ar_row_derive;
-
 use ar_row::arrow::datatypes::{DataType, Field};
 use ar_row::deserialize::{ArRowStruct, CheckableDataType};
 use ar_row_derive::ArRowDeserialize;

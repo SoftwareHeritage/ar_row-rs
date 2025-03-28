@@ -4,6 +4,7 @@ description = "Row-oriented access to Arrow arrays"
 version.workspace = true
 authors.workspace = true
 rust-version.workspace = true
+edition.workspace = true
 readme.workspace = true
 homepage.workspace = true
 repository.workspace = true

@@ -15,7 +15,7 @@
 
 use arrow::record_batch::RecordBatch;
 
-use deserialize::{ArRowDeserialize, DeserializationError};
+use crate::deserialize::{ArRowDeserialize, DeserializationError};
 
 /// Iterator on rows of yielded by an iterator of [`RecordBatch`].
 ///
@@ -59,7 +59,7 @@ impl<R: Iterator<Item = RecordBatch>, T: ArRowDeserialize + Clone> RowIterator<R
         match self.reader.next() {
             Some(record_batch) => {
                 if check_schema {
-                    T::check_schema(&*record_batch.schema())
+                    T::check_schema(&record_batch.schema())
                         .map_err(DeserializationError::MismatchedColumnDataType)?;
                 }
                 self.batch.resize(record_batch.num_rows(), T::default());

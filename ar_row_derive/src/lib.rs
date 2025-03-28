@@ -31,10 +31,6 @@
 //! <!-- Keep this in sync with README.md -->
 //!
 //! ```
-//! extern crate ar_row;
-//! extern crate ar_row_derive;
-//! extern crate orc_rust;
-//!
 //! use std::fs::File;
 //! use std::num::NonZeroU64;
 //!
@@ -85,10 +81,6 @@
 //! <!-- Keep this in sync with README.md -->
 //!
 //! ```
-//! extern crate ar_row;
-//! extern crate ar_row_derive;
-//! extern crate orc_rust;
-//!
 //! use std::fs::File;
 //! use std::num::NonZeroU64;
 //!
@@ -136,9 +128,6 @@
 //! <!-- Keep this in sync with README.md -->
 //!
 //! ```
-//! extern crate ar_row;
-//! extern crate ar_row_derive;
-//!
 //! use ar_row_derive::ArRowDeserialize;
 //!
 //! #[derive(ArRowDeserialize, Default, Debug, PartialEq)]
@@ -161,11 +150,6 @@
 //!     string1: Option<String>,
 //! }
 //! ```
-
-extern crate proc_macro;
-extern crate proc_macro2;
-extern crate quote;
-extern crate syn;
 
 use proc_macro::TokenStream;
 use proc_macro2::Ident;

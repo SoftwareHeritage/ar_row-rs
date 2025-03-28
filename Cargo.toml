@@ -1,5 +1,5 @@
 [workspace]
-
+resolver = "2"
 members = [
     "ar_row",
     "ar_row_derive",
@@ -13,6 +13,7 @@ authors = [
     "Software Heritage developers <swh-devel@inria.fr>"
 ]
 rust-version = "1.63"
+edition = "2021"
 readme = "README.md"
 homepage = "https://gitlab.softwareheritage.org/swh/devel/ar_row-rs"
 repository = "https://gitlab.softwareheritage.org/swh/devel/ar_row-rs"

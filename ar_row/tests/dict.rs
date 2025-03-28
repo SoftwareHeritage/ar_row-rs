@@ -3,8 +3,6 @@
 // License: GNU General Public License version 3, or any later version
 // See top-level LICENSE file for more information
 
-extern crate ar_row;
-
 use std::sync::Arc;
 
 use ar_row::arrow::array::{Array, DictionaryArray, Int8Array};

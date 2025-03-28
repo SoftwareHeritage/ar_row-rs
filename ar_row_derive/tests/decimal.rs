@@ -5,11 +5,6 @@
 
 /* TODO
 
-extern crate ar_row;
-extern crate ar_row_derive;
-extern crate rust_decimal;
-extern crate rust_decimal_macros;
-
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 
