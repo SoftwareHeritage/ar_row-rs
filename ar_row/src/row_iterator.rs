@@ -26,7 +26,7 @@ use crate::deserialize::{ArRowDeserialize, DeserializationError};
 /// # Panics
 ///
 /// next() repeatedly calls [`ArRowDeserialize::read_from_array`] and panics
-/// when it returns a [`::deserialize::DeserializationError`].
+/// when it returns a [`DeserializationError`].
 pub struct RowIterator<R: Iterator<Item = RecordBatch>, T: ArRowDeserialize + Clone> {
     reader: R,
     batch: Vec<T>,
@@ -74,7 +74,7 @@ impl<R: Iterator<Item = RecordBatch>, T: ArRowDeserialize + Clone> RowIterator<R
 /// # Panics
 ///
 /// next() repeatedly calls [`ArRowDeserialize::read_from_array`] and panics
-/// when it returns a [`::deserialize::DeserializationError`].
+/// when it returns a [`DeserializationError`].
 impl<R: Iterator<Item = RecordBatch>, T: ArRowDeserialize + Clone> Iterator for RowIterator<R, T> {
     type Item = T;
 
