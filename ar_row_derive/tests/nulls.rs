@@ -77,7 +77,7 @@ fn test_string_no_option() {
     }
 
     let mut reader = get_reader();
-    Root::check_schema(&*reader.schema()).unwrap();
+    Root::check_schema(&reader.schema()).unwrap();
 
     let batch = reader.next().unwrap().unwrap();
     assert_eq!(

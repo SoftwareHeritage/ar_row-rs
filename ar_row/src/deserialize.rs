@@ -83,7 +83,7 @@ fn check_datatype_equals(
             type_name,
             expected_datatypes
                 .iter()
-                .map(|k| format!("{:?}", k))
+                .map(|k| format!("{k:?}"))
                 .collect::<Vec<_>>()
                 .join("/"),
             got_datatype
@@ -397,14 +397,12 @@ impl<const N: usize> CheckableDataType for FixedSizeBinary<N> {
                 match i32::try_from(N) {
                     Ok(expected_size) if expected_size == *size => Ok(()),
                     _ => Err(format!(
-                    "[u8; {}] must be decoded from Arrow FixedSizeBinary({}), not Arrow FixedSizeBinary({})",
-                    N, N, size,
+                    "[u8; {N}] must be decoded from Arrow FixedSizeBinary({N}), not Arrow FixedSizeBinary({size})",
                 )),
                 }
             },
             _ => Err(format!(
-                "[u8; _] must be decoded from Arrow FixedSizeBinary, not Arrow {:?}",
-                datatype
+                "[u8; _] must be decoded from Arrow FixedSizeBinary, not Arrow {datatype:?}"
             )),
         }
     }
@@ -495,8 +493,7 @@ impl CheckableDataType for NaiveDecimal128 {
         match datatype {
             DataType::Decimal128(_, _) => Ok(()),
             _ => Err(format!(
-                "NaiveDecimal128 must be decoded from Arrow Decimal128(_, _), not Arrow {:?}",
-                datatype
+                "NaiveDecimal128 must be decoded from Arrow Decimal128(_, _), not Arrow {datatype:?}"
             )),
         }
     }
@@ -794,7 +791,7 @@ impl<T: CheckableDataType> CheckableDataType for Vec<T> {
     fn check_datatype(datatype: &DataType) -> Result<(), String> {
         match datatype {
             DataType::List(inner) => T::check_datatype(inner.data_type()),
-            _ => Err(format!("Must be a List, not {:?}", datatype)),
+            _ => Err(format!("Must be a List, not {datatype:?}")),
         }
     }
 }
@@ -1115,7 +1112,7 @@ mod tests {
                     ))
                 })?;
                 let columns = src.columns();
-                let column = columns.into_iter().next().unwrap();
+                let column = columns.iter().next().unwrap();
                 ArRowDeserialize::read_from_array::<MultiMap<&mut T, _>>(
                     column.clone(),
                     &mut dst.map(|struct_| &mut struct_.as_mut().unwrap().field1),

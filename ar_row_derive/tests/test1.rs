@@ -81,8 +81,7 @@ fn test_with_batch_size<
         assert_eq!(
             iter.next().as_ref(),
             Some(expected_row),
-            "Inconsistent row #{}",
-            i
+            "Inconsistent row #{i}"
         );
     }
     assert_eq!(iter.next(), None, "Too many rows");

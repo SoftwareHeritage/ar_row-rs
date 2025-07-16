@@ -36,7 +36,7 @@ fn incorrect_order() {
     );
     let reader = builder.with_projection(projection).build();
     assert_eq!(
-        Test1IncorrectOrder::check_schema(&*reader.schema()),
+        Test1IncorrectOrder::check_schema(&reader.schema()),
         Err("Test1IncorrectOrder cannot be decoded:\n\tField #1 must be called string1, not bytes1\n\tField #2 must be called bytes1, not string1".to_string()));
 }
 
@@ -57,6 +57,6 @@ fn incorrect_type() {
     );
     let reader = builder.with_projection(projection).build();
     assert_eq!(
-        Test1IncorrectType::check_schema(&*reader.schema()),
+        Test1IncorrectType::check_schema(&reader.schema()),
         Err("Test1IncorrectType cannot be decoded:\n\tField bytes1 cannot be decoded: String must be decoded from Arrow Utf8/LargeUtf8, not Arrow Binary".to_string()));
 }
