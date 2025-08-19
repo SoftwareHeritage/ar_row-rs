@@ -1,3 +1,24 @@
+# v1.2.0
+
+*2025-08-19
+
+Features:
+
+* Add support for arrow v56
+* Add support for FixedSizeBinary
+
+Fixes:
+
+* row_iterator: Always call check_schema
+* Fully-qualified use of CheckableDataType::check_datatype in the macro
+
+Internal:
+
+* row_iterator: Fix warnings when executing cargo doc
+* Switch from edition 2015 to 2021
+* Fix Clippy warnings
+* Add Cargo.lock to work around conflicting arrow versions in tests
+
 # v1.1.0
 
 *2024-09-25*
