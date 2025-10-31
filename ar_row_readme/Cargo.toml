@@ -20,4 +20,4 @@ ar_row.workspace = true
 ar_row_derive.workspace = true
 
 [dev-dependencies]
-orc-rust = ">=0.4.0,<0.7"
+orc-rust = ">=0.4.0,<0.8"
