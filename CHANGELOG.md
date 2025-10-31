@@ -1,3 +1,11 @@
+# v2.0.0
+
+*2025-10-31
+
+Features:
+
+* Add support for arrow v57
+
 # v1.2.0
 
 *2025-08-19
