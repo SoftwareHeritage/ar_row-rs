@@ -68,6 +68,9 @@ pub enum DeserializationError {
     /// Could not convert [`Decimal128Type`] to [`Timestamp`]
     #[error("Could not represent number of seconds ({seconds}) as a 64-bits signed integer")]
     TimestampOverflow { seconds: i128 },
+    /// Invalid value for a logical type
+    #[error("Invalid value {value} for {field}")]
+    InvalidValue { value: String, field: String },
 }
 
 fn check_datatype_equals(
@@ -538,10 +541,20 @@ macro_rules! impl_timestamp {
                 ))),
                 Some(it) => {
                     for (s, d) in it.zip($dst.iter_mut()) {
+                        let seconds = s.div_euclid($ratio);
+                        #[allow(clippy::modulo_one)]
+                        let nanoseconds = s.rem_euclid($ratio) * (1_000_000_000 / $ratio);
+                        if nanoseconds > 1_000_000_000 {
+                            return Err(DeserializationError::InvalidValue {
+                                value: format!("{nanoseconds}"),
+                                field: "nanoseconds".into(),
+                            });
+                        }
+
                         *d = Timestamp {
-                            seconds: s / $ratio,
-                            #[allow(clippy::modulo_one)]
-                            nanoseconds: (s % $ratio) * (1_000_000_000 / $ratio),
+                            seconds,
+                            nanoseconds: u32::try_from(nanoseconds)
+                                .expect("Nanoseconds overflowed u32"),
                         }
                     }
 
@@ -605,10 +618,19 @@ macro_rules! impl_timestamp_option {
                 match s {
                     None => *d = None,
                     Some(s) => {
+                        let seconds = s.div_euclid($ratio);
+                        #[allow(clippy::modulo_one)]
+                        let nanoseconds = s.rem_euclid($ratio) * (1_000_000_000 / $ratio);
+                        if nanoseconds > 1_000_000_000 {
+                            return Err(DeserializationError::InvalidValue {
+                                value: format!("{nanoseconds}"),
+                                field: "nanoseconds".into(),
+                            });
+                        }
                         *d = Some(Timestamp {
-                            seconds: s / $ratio,
-                            #[allow(clippy::modulo_one)]
-                            nanoseconds: (s % $ratio) * (1_000_000_000 / $ratio),
+                            seconds,
+                            nanoseconds: u32::try_from(nanoseconds)
+                                .expect("Nanoseconds overflowed u32"),
                         })
                     }
                 }
@@ -662,12 +684,19 @@ impl ArRowDeserialize for Option<Timestamp> {
 
 fn timestamp_from_decimal128(s: i128) -> Result<Timestamp, DeserializationError> {
     let dividend = 10u64.pow(DECIMAL_SCALE.try_into().unwrap());
-    let seconds = s / i128::from(dividend);
-    let nanoseconds = s % i128::from(dividend);
+    let seconds = s.div_euclid(i128::from(dividend));
+    let nanoseconds = s.rem_euclid(i128::from(dividend));
+
+    if nanoseconds > 1_000_000_000 {
+        return Err(DeserializationError::InvalidValue {
+            value: format!("{nanoseconds}"),
+            field: "nanoseconds".into(),
+        });
+    }
     Ok(Timestamp {
         seconds: i64::try_from(seconds)
             .map_err(|_| DeserializationError::TimestampOverflow { seconds })?,
-        nanoseconds: nanoseconds.try_into().unwrap(), // can't overflow, dividend fits in u64
+        nanoseconds: nanoseconds.try_into().expect("Nanoseconds overflowed u32"),
     })
 }
 

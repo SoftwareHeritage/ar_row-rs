@@ -109,22 +109,22 @@ fn test_timestamp_1900() {
         vec![
             TimeAndDate {
                 time: Timestamp {
-                    seconds: -2198229903,
-                    nanoseconds: -900000000
+                    seconds: -2198229904,
+                    nanoseconds: 100000000
                 },
                 date: Date(-25209),
             },
             TimeAndDate {
                 time: Timestamp {
-                    seconds: -2198229903,
-                    nanoseconds: -899900000
+                    seconds: -2198229904,
+                    nanoseconds: 100100000
                 },
                 date: Date(-25209),
             },
             TimeAndDate {
                 time: Timestamp {
-                    seconds: -2198229903,
-                    nanoseconds: -899800000
+                    seconds: -2198229904,
+                    nanoseconds: 100200000
                 },
                 date: Date(-25209),
             },
@@ -155,22 +155,22 @@ fn test_timestamp_1900_decimal() {
         vec![
             TimeAndDate {
                 time: Timestamp {
-                    seconds: -2198229903,
-                    nanoseconds: -900000000
+                    seconds: -2198229904,
+                    nanoseconds: 100000000
                 },
                 date: Date(-25209),
             },
             TimeAndDate {
                 time: Timestamp {
-                    seconds: -2198229903,
-                    nanoseconds: -899900000
+                    seconds: -2198229904,
+                    nanoseconds: 100100000
                 },
                 date: Date(-25209),
             },
             TimeAndDate {
                 time: Timestamp {
-                    seconds: -2198229903,
-                    nanoseconds: -899800000
+                    seconds: -2198229904,
+                    nanoseconds: 100200000
                 },
                 date: Date(-25209),
             },

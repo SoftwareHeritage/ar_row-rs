@@ -36,7 +36,7 @@ pub mod row_iterator;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
 pub struct Timestamp {
     pub seconds: i64,
-    pub nanoseconds: i64,
+    pub nanoseconds: u32,
 }
 
 /// Scale-less decimal number
