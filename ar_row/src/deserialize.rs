@@ -526,6 +526,10 @@ impl CheckableDataType for Timestamp {
                 DataType::Timestamp(Microsecond, None),
                 DataType::Timestamp(Nanosecond, None),
                 DataType::Decimal128(DECIMAL_PRECISION, DECIMAL_SCALE),
+                DataType::Struct(Fields::from(vec![
+                    Field::new("seconds", DataType::Int64, false),
+                    Field::new("nanoseconds", DataType::UInt32, false),
+                ])),
             ],
             "Timestamp",
         )
@@ -600,6 +604,12 @@ impl ArRowDeserialize for Timestamp {
             };
         }
 
+        if let Some(src) = src.as_struct_opt() {
+            if let Some(count) = read_timestamp_from_struct_array(src, &mut dst)? {
+                return Ok(count);
+            }
+        }
+
         if let Some(src) = src.as_any_dictionary_opt() {
             return read_from_dictionary_array(src, dst);
         }
@@ -608,6 +618,52 @@ impl ArRowDeserialize for Timestamp {
             "Could not cast {:?} array with as_primitive_opt::<Timestamp*Type>",
             src.data_type(),
         )))
+    }
+}
+
+fn read_timestamp_from_struct_array<'a, 'b, T>(
+    src: &StructArray,
+    dst: &mut &'b mut T,
+) -> Result<Option<usize>, DeserializationError>
+where
+    &'b mut T: DeserializationTarget<'a, Item = Timestamp> + 'b,
+{
+    let Some(src_seconds) = src.column_by_name("seconds") else {
+        return Ok(None);
+    };
+    let Some(src_seconds) = src_seconds.as_primitive_opt::<Int64Type>() else {
+        return Ok(None);
+    };
+    let Some(src_nanoseconds) = src.column_by_name("nanoseconds") else {
+        return Ok(None);
+    };
+    let Some(src_nanoseconds) = src_nanoseconds.as_primitive_opt::<UInt32Type>() else {
+        return Ok(None);
+    };
+
+    match (
+        NotNullArrayIter::new(src_seconds),
+        NotNullArrayIter::new(src_nanoseconds),
+    ) {
+        (None, None) => Err(DeserializationError::UnexpectedNull(
+            "Timestamp.seconds and Timestamp.nanoseconds columns contain nulls".to_string(),
+        )),
+        (None, Some(_)) => Err(DeserializationError::UnexpectedNull(
+            "Timestamp.seconds column contain nulls".to_string(),
+        )),
+        (Some(_), None) => Err(DeserializationError::UnexpectedNull(
+            "Timestamp.nanoseconds column contain nulls".to_string(),
+        )),
+        (Some(it_seconds), Some(it_nanoseconds)) => {
+            for ((seconds, nanoseconds), d) in it_seconds.zip(it_nanoseconds).zip(dst.iter_mut()) {
+                *d = Timestamp {
+                    seconds,
+                    nanoseconds,
+                }
+            }
+
+            Ok(Some(src.len()))
+        }
     }
 }
 
