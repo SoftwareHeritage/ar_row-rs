@@ -64,6 +64,7 @@ dependencies = [
  "arrow",
  "chrono",
  "cxx-build",
+ "either",
  "flate2",
  "pretty_assertions",
  "tempfile",

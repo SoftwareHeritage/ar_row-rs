@@ -12,6 +12,7 @@ use std::sync::Arc;
 
 use arrow::array::*;
 use arrow::datatypes::*;
+use either::Either;
 //use rust_decimal::Decimal;
 use thiserror::Error;
 
@@ -621,13 +622,9 @@ impl ArRowDeserialize for Timestamp {
     }
 }
 
-fn read_timestamp_from_struct_array<'a, 'b, T>(
+fn get_timestamp_buffers(
     src: &StructArray,
-    dst: &mut &'b mut T,
-) -> Result<Option<usize>, DeserializationError>
-where
-    &'b mut T: DeserializationTarget<'a, Item = Timestamp> + 'b,
-{
+) -> Result<Option<(&Int64Array, &UInt32Array)>, DeserializationError> {
     let Some(src_seconds) = src.column_by_name("seconds") else {
         return Ok(None);
     };
@@ -638,6 +635,20 @@ where
         return Ok(None);
     };
     let Some(src_nanoseconds) = src_nanoseconds.as_primitive_opt::<UInt32Type>() else {
+        return Ok(None);
+    };
+
+    Ok(Some((src_seconds, src_nanoseconds)))
+}
+
+fn read_timestamp_from_struct_array<'a, 'b, T>(
+    src: &StructArray,
+    dst: &mut &'b mut T,
+) -> Result<Option<usize>, DeserializationError>
+where
+    &'b mut T: DeserializationTarget<'a, Item = Timestamp> + 'b,
+{
+    let Some((src_seconds, src_nanoseconds)) = get_timestamp_buffers(src)? else {
         return Ok(None);
     };
 
@@ -665,6 +676,57 @@ where
             Ok(Some(src.len()))
         }
     }
+}
+
+fn read_opt_timestamp_from_struct_array<'a, 'b, T>(
+    src: &StructArray,
+    dst: &mut &'b mut T,
+) -> Result<Option<usize>, DeserializationError>
+where
+    &'b mut T: DeserializationTarget<'a, Item = Option<Timestamp>> + 'b,
+{
+    let Some((src_seconds, src_nanoseconds)) = get_timestamp_buffers(src)? else {
+        return Ok(None);
+    };
+
+    // src_seconds and src_nanoseconds may contain nulls because Arrow represents nullable
+    // structs are nullable structs of nullable fields, even when the schema says
+    // the fields are not independently nullable.
+    // https://arrow.apache.org/docs/format/Columnar.html#struct-validity
+    let it_seconds = ArrayIter::new(src_seconds);
+    let it_nanoseconds = ArrayIter::new(src_nanoseconds);
+    for (((seconds, nanoseconds), is_valid), d) in it_seconds
+        .zip(it_nanoseconds)
+        .zip(
+            src.nulls()
+                .map(|nulls| Either::Left(nulls.iter()))
+                .unwrap_or_else(|| Either::Right(std::iter::repeat(true))),
+        )
+        .zip(dst.iter_mut())
+    {
+        if is_valid {
+            let seconds =
+                seconds.expect("Timestamp.seconds contains null where Timestamp is not null");
+            let nanoseconds = nanoseconds
+                .expect("Timestamp.nanoseconds contains null where Timestamp is not null");
+            *d = Some(Timestamp {
+                seconds,
+                nanoseconds,
+            });
+        } else {
+            assert!(
+                seconds.is_none(),
+                "Timestamp.seconds contains non-null where Timestamp is null"
+            );
+            assert!(
+                nanoseconds.is_none(),
+                "Timestamp.seconds contains non-null where Timestamp is null"
+            );
+            *d = None;
+        }
+    }
+
+    Ok(Some(src.len()))
 }
 
 macro_rules! impl_timestamp_option {
@@ -726,14 +788,19 @@ impl ArRowDeserialize for Option<Timestamp> {
             return Ok(src.len());
         }
 
+        if let Some(src) = src.as_struct_opt() {
+            if let Some(count) = read_opt_timestamp_from_struct_array(src, &mut dst)? {
+                return Ok(count);
+            }
+        }
+
         if let Some(src) = src.as_any_dictionary_opt() {
             return read_options_from_dictionary_array(src, dst);
         }
 
         Err(DeserializationError::MismatchedColumnDataType(format!(
-            "Could not cast {:?} array with {}",
+            "Could not cast {:?} array with as_primitive_opt::<Decimal128Type> or as_struct_opt",
             src.data_type(),
-            stringify!($method)
         )))
     }
 }
