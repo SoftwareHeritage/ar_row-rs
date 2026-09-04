@@ -1093,7 +1093,12 @@ pub unsafe trait DeserializationTarget<'a> {
 
 unsafe impl<'a, V: Sized + 'a> DeserializationTarget<'a> for &mut Vec<V> {
     type Item = V;
-    type IterMut<'b> = IterMut<'b, V> where V: 'b, 'a: 'b, Self: 'b;
+    type IterMut<'b>
+        = IterMut<'b, V>
+    where
+        V: 'b,
+        'a: 'b,
+        Self: 'b;
 
     fn len(&self) -> usize {
         (self as &Vec<_>).len()
@@ -1117,7 +1122,13 @@ where
     T: DeserializationTarget<'a, Item = V>,
 {
     type Item = V2;
-    type IterMut<'b> = Map<T::IterMut<'b>, F> where T: 'b, 'a: 'b, F: 'b, Self: 'b;
+    type IterMut<'b>
+        = Map<T::IterMut<'b>, F>
+    where
+        T: 'b,
+        'a: 'b,
+        F: 'b,
+        Self: 'b;
 
     fn len(&self) -> usize {
         self.iter.len()
