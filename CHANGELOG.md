@@ -1,5 +1,17 @@
 # v2.0.0
 
+*2026-09-07*
+
+Breaking:
+
+* Make `Timestamp` nanoseconds unsigned (they were negative for timestamps before Epoch) and store them as `u32` instead of `i64`.
+
+Features:
+
+* Add support for deserializing `Timestamp` from struct { seconds, nanoseconds }
+
+# v1.3.0
+
 *2025-10-31
 
 Features:

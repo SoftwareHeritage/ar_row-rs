@@ -59,7 +59,7 @@ checksum = "a23eb6b1614318a8071c9b2521f36b424b2c83db5eb3a0fead4a6c0809af6e61"
 
 [[package]]
 name = "ar_row"
-version = "1.3.0"
+version = "2.0.0"
 dependencies = [
  "arrow",
  "chrono",
@@ -73,7 +73,7 @@ dependencies = [
 
 [[package]]
 name = "ar_row_derive"
-version = "1.3.0"
+version = "2.0.0"
 dependencies = [
  "ar_row",
  "chrono",
@@ -88,7 +88,7 @@ dependencies = [
 
 [[package]]
 name = "ar_row_readme"
-version = "1.3.0"
+version = "2.0.0"
 dependencies = [
  "ar_row",
  "ar_row_derive",
