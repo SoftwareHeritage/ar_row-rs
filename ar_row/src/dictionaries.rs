@@ -58,7 +58,7 @@ where
         Some(nulls) => {
             for ((not_null, key), d) in nulls
                 .iter()
-                .zip(src.normalized_keys().into_iter())
+                .zip(src.normalized_keys())
                 .zip(dst.iter_mut())
             {
                 // FIXME: does Rustc eliminate the copy in normalized_keys()?
