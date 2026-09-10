@@ -8,6 +8,7 @@ use std::sync::Arc;
 use ar_row::arrow::array::{
     ArrayRef, Int64Array, Int64Builder, StructArray, UInt32Array, UInt32Builder,
 };
+use ar_row::deserialize::CheckableDataType;
 use ar_row::arrow::buffer::{MutableBuffer, NullBuffer};
 use ar_row::arrow::datatypes::{DataType, Field};
 
@@ -29,6 +30,7 @@ fn test_struct_timestamp() {
         ),
     ]);
 
+    <Timestamp>::check_datatype(&DataType::Struct(array.fields().clone())).unwrap();
     let rows: Vec<_> = <Timestamp>::from_array(Arc::new(array) as Arc<_>).unwrap();
 
     assert_eq!(
@@ -88,6 +90,7 @@ fn test_opt_struct_timestamp() {
         ])),
     );
 
+    <Option<Timestamp>>::check_datatype(&DataType::Struct(array.fields().clone())).unwrap();
     let rows: Vec<_> = <Option<Timestamp>>::from_array(Arc::new(array) as Arc<_>).unwrap();
 
     assert_eq!(
@@ -149,6 +152,7 @@ fn test_opt_struct_timestamp_no_nullbuffer() {
         None,
     );
 
+    <Timestamp>::check_datatype(&DataType::Struct(array.fields().clone())).unwrap();
     let rows: Vec<_> = <Option<Timestamp>>::from_array(Arc::new(array) as Arc<_>).unwrap();
 
     assert_eq!(
@@ -193,6 +197,7 @@ fn test_struct_timestamp_from_microseconds() {
         ),
     ]);
 
+    <Timestamp>::check_datatype(&DataType::Struct(array.fields().clone())).unwrap();
     let rows: Vec<_> = <Timestamp>::from_array(Arc::new(array) as Arc<_>).unwrap();
 
     assert_eq!(
@@ -252,6 +257,7 @@ fn test_opt_struct_timestamp_from_microseconds() {
         ])),
     );
 
+    <Option<Timestamp>>::check_datatype(&DataType::Struct(array.fields().clone())).unwrap();
     let rows: Vec<_> = <Option<Timestamp>>::from_array(Arc::new(array) as Arc<_>).unwrap();
 
     assert_eq!(
@@ -312,6 +318,7 @@ fn test_opt_struct_timestamp_no_nullbuffer_from_microseconds() {
         ],
         None,
     );
+    <Option<Timestamp>>::check_datatype(&DataType::Struct(array.fields().clone())).unwrap();
 
     let rows: Vec<_> = <Option<Timestamp>>::from_array(Arc::new(array) as Arc<_>).unwrap();
 

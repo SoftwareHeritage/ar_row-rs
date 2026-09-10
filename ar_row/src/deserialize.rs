@@ -532,6 +532,10 @@ impl CheckableDataType for Timestamp {
                     Field::new("seconds", DataType::Int64, false),
                     Field::new("nanoseconds", DataType::UInt32, false),
                 ])),
+                DataType::Struct(Fields::from(vec![
+                    Field::new("seconds", DataType::Int64, false),
+                    Field::new("microseconds", DataType::UInt32, false),
+                ])),
             ],
             "Timestamp",
         )
