@@ -7,6 +7,7 @@
 
 #![allow(clippy::redundant_closure_call)]
 
+use std::borrow::{Borrow, Cow};
 use std::convert::{TryFrom, TryInto};
 use std::sync::Arc;
 
@@ -624,21 +625,31 @@ impl ArRowDeserialize for Timestamp {
 
 fn get_timestamp_buffers(
     src: &StructArray,
-) -> Result<Option<(&Int64Array, &UInt32Array)>, DeserializationError> {
+) -> Result<Option<(&Int64Array, Cow<'_, UInt32Array>)>, DeserializationError> {
     let Some(src_seconds) = src.column_by_name("seconds") else {
         return Ok(None);
     };
     let Some(src_seconds) = src_seconds.as_primitive_opt::<Int64Type>() else {
         return Ok(None);
     };
-    let Some(src_nanoseconds) = src.column_by_name("nanoseconds") else {
-        return Ok(None);
-    };
-    let Some(src_nanoseconds) = src_nanoseconds.as_primitive_opt::<UInt32Type>() else {
-        return Ok(None);
-    };
+    if let Some(src_nanoseconds) = src.column_by_name("nanoseconds") {
+        let Some(src_nanoseconds) = src_nanoseconds.as_primitive_opt::<UInt32Type>() else {
+            return Ok(None);
+        };
 
-    Ok(Some((src_seconds, src_nanoseconds)))
+        Ok(Some((src_seconds, Cow::Borrowed(src_nanoseconds))))
+    } else {
+        let Some(src_microseconds) = src.column_by_name("microseconds") else {
+            return Ok(None);
+        };
+        let Some(src_microseconds) = src_microseconds.as_primitive_opt::<UInt32Type>() else {
+            return Ok(None);
+        };
+
+        let src_nanoseconds = arrow::compute::kernels::arity::unary(&src_microseconds, |us| us * 1000);
+
+        Ok(Some((src_seconds, Cow::Owned(src_nanoseconds))))
+    }
 }
 
 fn read_timestamp_from_struct_array<'a, 'b, T>(
@@ -654,7 +665,7 @@ where
 
     match (
         NotNullArrayIter::new(src_seconds),
-        NotNullArrayIter::new(src_nanoseconds),
+        NotNullArrayIter::<&PrimitiveArray<_>>::new(src_nanoseconds.borrow()),
     ) {
         (None, None) => Err(DeserializationError::UnexpectedNull(
             "Timestamp.seconds and Timestamp.nanoseconds columns contain nulls".to_string(),
@@ -694,7 +705,7 @@ where
     // the fields are not independently nullable.
     // https://arrow.apache.org/docs/format/Columnar.html#struct-validity
     let it_seconds = ArrayIter::new(src_seconds);
-    let it_nanoseconds = ArrayIter::new(src_nanoseconds);
+    let it_nanoseconds = ArrayIter::<&PrimitiveArray<_>>::new(src_nanoseconds.borrow());
     for (((seconds, nanoseconds), is_valid), d) in it_seconds
         .zip(it_nanoseconds)
         .zip(
