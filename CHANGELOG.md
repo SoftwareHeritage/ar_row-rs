@@ -1,3 +1,14 @@
+# v2.1.0
+
+*2026-09-11*
+
+Features:
+
+* Seserializing timestamps from struct { seconds, microseconds }
+
+* Deserializing timestamps from nullable structs with non-nullable fields,
+  like those we get from the 'parquet' crate
+
 # v2.0.0
 
 *2026-09-07*
