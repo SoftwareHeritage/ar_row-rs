@@ -125,6 +125,72 @@ fn test_opt_struct_timestamp() {
     );
 }
 
+/// Emulates how the 'parquet' crate deserializes nullable structs with non-nullable fields
+#[test]
+fn test_opt_struct_timestamp_no_null_fields() {
+    let mut seconds_builder = Int64Builder::new();
+    let mut nanoseconds_builder = UInt32Builder::new();
+
+    for v in [-1000, -1, 0, 1, 1000] {
+        seconds_builder.append_value(0);
+        seconds_builder.append_value(v);
+    }
+    for v in [1, 2, 3, 4, 5] {
+        nanoseconds_builder.append_value(0);
+        nanoseconds_builder.append_value(v);
+    }
+
+    let fields = vec![
+        (Arc::new(Field::new("seconds", DataType::Int64.into(), false))),
+        (Arc::new(Field::new("nanoseconds", DataType::UInt32.into(), false))),
+    ];
+
+    let array = StructArray::new(
+        fields.into(),
+        vec![
+            Arc::new(seconds_builder.finish()) as _,
+            Arc::new(nanoseconds_builder.finish()) as _,
+        ],
+        Some(NullBuffer::from(vec![
+            false, true, false, true, false, true, false, true, false, true,
+        ])),
+    );
+
+    <Option<Timestamp>>::check_datatype(&DataType::Struct(array.fields().clone())).unwrap();
+    let rows: Vec<_> = <Option<Timestamp>>::from_array(Arc::new(array) as Arc<_>).unwrap();
+
+    assert_eq!(
+        rows,
+        vec![
+            None,
+            Some(Timestamp {
+                seconds: -1000,
+                nanoseconds: 1
+            }),
+            None,
+            Some(Timestamp {
+                seconds: -1,
+                nanoseconds: 2
+            }),
+            None,
+            Some(Timestamp {
+                seconds: 0,
+                nanoseconds: 3
+            }),
+            None,
+            Some(Timestamp {
+                seconds: 1,
+                nanoseconds: 4
+            }),
+            None,
+            Some(Timestamp {
+                seconds: 1000,
+                nanoseconds: 5
+            })
+        ]
+    );
+}
+
 #[test]
 fn test_opt_struct_timestamp_no_nullbuffer() {
     // no nulls within the struct
