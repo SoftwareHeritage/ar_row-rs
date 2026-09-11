@@ -650,7 +650,7 @@ fn get_timestamp_buffers(
             return Ok(None);
         };
 
-        let src_nanoseconds = arrow::compute::kernels::arity::unary(&src_microseconds, |us| us * 1000);
+        let src_nanoseconds = arrow::compute::kernels::arity::unary(src_microseconds, |us| us * 1000);
 
         Ok(Some((src_seconds, Cow::Owned(src_nanoseconds))))
     }
