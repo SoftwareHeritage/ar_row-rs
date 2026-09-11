@@ -729,6 +729,7 @@ where
                 nanoseconds,
             });
         } else {
+            // Note: 'seconds' and 'nanoseconds' may be Some(0)
             *d = None;
         }
     }
