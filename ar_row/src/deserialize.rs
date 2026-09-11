@@ -729,14 +729,6 @@ where
                 nanoseconds,
             });
         } else {
-            assert!(
-                seconds.is_none(),
-                "Timestamp.seconds contains non-null where Timestamp is null"
-            );
-            assert!(
-                nanoseconds.is_none(),
-                "Timestamp.seconds contains non-null where Timestamp is null"
-            );
             *d = None;
         }
     }
