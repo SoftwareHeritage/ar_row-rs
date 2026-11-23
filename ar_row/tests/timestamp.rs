@@ -21,11 +21,11 @@ fn test_struct_timestamp() {
     let nanoseconds: UInt32Array = vec![1, 2, 3, 4, 5].into_iter().collect();
     let array = StructArray::from(vec![
         (
-            Arc::new(Field::new("seconds", DataType::Int64.into(), false)),
+            Arc::new(Field::new("seconds", DataType::Int64, false)),
             Arc::new(seconds) as ArrayRef,
         ),
         (
-            Arc::new(Field::new("nanoseconds", DataType::UInt32.into(), false)),
+            Arc::new(Field::new("nanoseconds", DataType::UInt32, false)),
             Arc::new(nanoseconds) as ArrayRef,
         ),
     ]);
@@ -75,8 +75,8 @@ fn test_opt_struct_timestamp() {
     }
 
     let fields = vec![
-        (Arc::new(Field::new("seconds", DataType::Int64.into(), false))),
-        (Arc::new(Field::new("nanoseconds", DataType::UInt32.into(), false))),
+        (Arc::new(Field::new("seconds", DataType::Int64, false))),
+        (Arc::new(Field::new("nanoseconds", DataType::UInt32, false))),
     ];
 
     let array = StructArray::new(
@@ -141,8 +141,8 @@ fn test_opt_struct_timestamp_no_null_fields() {
     }
 
     let fields = vec![
-        (Arc::new(Field::new("seconds", DataType::Int64.into(), false))),
-        (Arc::new(Field::new("nanoseconds", DataType::UInt32.into(), false))),
+        (Arc::new(Field::new("seconds", DataType::Int64, false))),
+        (Arc::new(Field::new("nanoseconds", DataType::UInt32, false))),
     ];
 
     let array = StructArray::new(
@@ -205,8 +205,8 @@ fn test_opt_struct_timestamp_no_nullbuffer() {
     }
 
     let fields = vec![
-        (Arc::new(Field::new("seconds", DataType::Int64.into(), false))),
-        (Arc::new(Field::new("nanoseconds", DataType::UInt32.into(), false))),
+        (Arc::new(Field::new("seconds", DataType::Int64, false))),
+        (Arc::new(Field::new("nanoseconds", DataType::UInt32, false))),
     ];
 
     let array = StructArray::new(
@@ -254,11 +254,11 @@ fn test_struct_timestamp_from_microseconds() {
     let nanoseconds: UInt32Array = vec![1, 2, 3, 4, 5].into_iter().collect();
     let array = StructArray::from(vec![
         (
-            Arc::new(Field::new("seconds", DataType::Int64.into(), false)),
+            Arc::new(Field::new("seconds", DataType::Int64, false)),
             Arc::new(seconds) as ArrayRef,
         ),
         (
-            Arc::new(Field::new("microseconds", DataType::UInt32.into(), false)),
+            Arc::new(Field::new("microseconds", DataType::UInt32, false)),
             Arc::new(nanoseconds) as ArrayRef,
         ),
     ]);
@@ -308,8 +308,8 @@ fn test_opt_struct_timestamp_from_microseconds() {
     }
 
     let fields = vec![
-        (Arc::new(Field::new("seconds", DataType::Int64.into(), false))),
-        (Arc::new(Field::new("microseconds", DataType::UInt32.into(), false))),
+        (Arc::new(Field::new("seconds", DataType::Int64, false))),
+        (Arc::new(Field::new("microseconds", DataType::UInt32, false))),
     ];
 
     let array = StructArray::new(
@@ -372,8 +372,8 @@ fn test_opt_struct_timestamp_no_nullbuffer_from_microseconds() {
     }
 
     let fields = vec![
-        (Arc::new(Field::new("seconds", DataType::Int64.into(), false))),
-        (Arc::new(Field::new("microseconds", DataType::UInt32.into(), false))),
+        (Arc::new(Field::new("seconds", DataType::Int64, false))),
+        (Arc::new(Field::new("microseconds", DataType::UInt32, false))),
     ];
 
     let array = StructArray::new(
